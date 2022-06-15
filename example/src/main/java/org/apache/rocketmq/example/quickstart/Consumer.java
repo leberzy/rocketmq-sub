@@ -55,6 +55,7 @@ public class Consumer {
         /*
          * Specify where to start in case the specific consumer group is a brand-new one.
          */
+        consumer.setNamesrvAddr(DEFAULT_NAMESRVADDR);
         consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
 
         /*

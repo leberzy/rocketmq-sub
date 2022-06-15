@@ -48,13 +48,20 @@ public class NamesrvStartup {
     private static CommandLine commandLine = null;
 
     public static void main(String[] args) {
+        // 启动时 使用了-c -p....等参数
         main0(args);
     }
 
     public static NamesrvController main0(String[] args) {
 
         try {
+            // 创建nameSrv控制器
+            // 用于启动，停止nameServer
+
+
+            // 初始化控制器
             NamesrvController controller = createNamesrvController(args);
+            // 启动
             start(controller);
             String tip = "The Name Server boot success. serializeType=" + RemotingCommand.getSerializeTypeConfigInThisServer();
             log.info(tip);
@@ -73,6 +80,7 @@ public class NamesrvStartup {
         //PackageConflictDetect.detectFastjson();
 
         Options options = ServerUtil.buildCommandlineOptions(new Options());
+        // commandLine管理启动参数
         commandLine = ServerUtil.parseCmdLine("mqnamesrv", args, buildCommandlineOptions(options), new PosixParser());
         if (null == commandLine) {
             System.exit(-1);
@@ -81,6 +89,7 @@ public class NamesrvStartup {
 
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+        // name server启动时监听的端口
         nettyServerConfig.setListenPort(9876);
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
@@ -105,6 +114,7 @@ public class NamesrvStartup {
             System.exit(0);
         }
 
+        // 启动命令写入到property配置文件中去
         MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), namesrvConfig);
 
         if (null == namesrvConfig.getRocketmqHome()) {
@@ -123,6 +133,7 @@ public class NamesrvStartup {
         MixAll.printObjectProperties(log, namesrvConfig);
         MixAll.printObjectProperties(log, nettyServerConfig);
 
+        // 控制器
         final NamesrvController controller = new NamesrvController(namesrvConfig, nettyServerConfig);
 
         // remember all configs to prevent discard
@@ -137,12 +148,14 @@ public class NamesrvStartup {
             throw new IllegalArgumentException("NamesrvController is null");
         }
 
+        // 初始化
         boolean initResult = controller.initialize();
         if (!initResult) {
             controller.shutdown();
             System.exit(-3);
         }
 
+        // 注册jvm hook，平滑关闭的逻辑
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, (Callable<Void>) () -> {
             controller.shutdown();
             return null;

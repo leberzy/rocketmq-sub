@@ -51,10 +51,13 @@ public class NamesrvController {
     private final KVConfigManager kvConfigManager;
     private final RouteInfoManager routeInfoManager;
 
+    // 网络层封装对象
     private RemotingServer remotingServer;
 
+    // 用于监听Channel状态，当channel状态发生变化时 close，idle..会向事件队列发送事件，事件最终由该service处理
     private BrokerHousekeepingService brokerHousekeepingService;
 
+    // 业务线程池，netty线程主要任务是解析报文，解析成Remote command对象，然后交给业务线程池去处理业务
     private ExecutorService remotingExecutor;
 
     private Configuration configuration;
@@ -75,17 +78,23 @@ public class NamesrvController {
 
     public boolean initialize() {
 
+        // 加载kv配置
         this.kvConfigManager.load();
 
+        // 创建网络服务器
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
+        // 创建业务线程池，默认线程数8
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
+        // 注册协议处理器
         this.registerProcessor();
 
+        // 定时任务1：以10s为周期检查broker的存活状态，将idle状态的broker移除
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.routeInfoManager::scanNotActiveBroker, 5, 10, TimeUnit.SECONDS);
 
+        // 定时任务2：以10分钟打印一遍kv配置
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.kvConfigManager::printAllPeriodically, 1, 10, TimeUnit.MINUTES);
 
         if (TlsSystemConfig.tlsMode != TlsMode.DISABLED) {
@@ -136,6 +145,7 @@ public class NamesrvController {
                 this.remotingExecutor);
         } else {
 
+            // 注册缺省协议处理器
             this.remotingServer.registerDefaultProcessor(new DefaultRequestProcessor(this), this.remotingExecutor);
         }
     }
