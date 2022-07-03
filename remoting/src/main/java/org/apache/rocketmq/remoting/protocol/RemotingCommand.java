@@ -77,13 +77,15 @@ public class RemotingCommand {
     private LanguageCode language = LanguageCode.JAVA;
     private int version = 0;
     private int opaque = requestId.getAndIncrement();
-    private int flag = 0;
+    private int flag = 0; // 如：如果是单向请求的话，可以标记bit=1
     private String remark;
     private HashMap<String, String> extFields;
+    // 不参与序列化
     private transient CommandCustomHeader customHeader;
 
     private SerializeType serializeTypeCurrentRPC = serializeTypeConfigInThisServer;
 
+    //
     private transient byte[] body;
 
     protected RemotingCommand() {

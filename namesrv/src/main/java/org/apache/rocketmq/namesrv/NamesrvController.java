@@ -46,15 +46,20 @@ public class NamesrvController {
 
     private final NettyServerConfig nettyServerConfig;
 
+    // 定时任务调度线程池
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl(
         "NSScheduledThread"));
+
+    // 管理kv配置
     private final KVConfigManager kvConfigManager;
+
+    // 管理路由信息
     private final RouteInfoManager routeInfoManager;
 
     // 网络层封装对象
     private RemotingServer remotingServer;
 
-    // 用于监听Channel状态，当channel状态发生变化时 close，idle..会向事件队列发送事件，事件最终由该service处理
+    // 用于监听Channel状态，当channel状态发生变化时 close，idle...等 会向事件队列发送事件，事件最终由该brokerHousekeepingService处理
     private BrokerHousekeepingService brokerHousekeepingService;
 
     // 业务线程池，netty线程主要任务是解析报文，解析成Remote command对象，然后交给业务线程池去处理业务

@@ -92,8 +92,10 @@ public class NamesrvStartup {
         // name server启动时监听的端口
         nettyServerConfig.setListenPort(9876);
         if (commandLine.hasOption('c')) {
+            // -c 选项 配置的配置文件路径
             String file = commandLine.getOptionValue('c');
             if (file != null) {
+                // 读取配置文件
                 InputStream in = new BufferedInputStream(new FileInputStream(file));
                 properties = new Properties();
                 properties.load(in);
