@@ -301,17 +301,26 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         }
     }
 
+    // 注册业务处理器
     @Override
     public void registerProcessor(int requestCode, NettyRequestProcessor processor, ExecutorService executor) {
         ExecutorService executorThis = executor;
         if (null == executor) {
+            // 默认使用公共线程池
             executorThis = this.publicExecutor;
         }
 
+        // <处理器，执行处理器的线程池>
         Pair<NettyRequestProcessor, ExecutorService> pair = new Pair<NettyRequestProcessor, ExecutorService>(processor, executorThis);
+        // 添加到map中
         this.processorTable.put(requestCode, pair);
     }
 
+    /**
+     * 注册缺省的处理器
+     * @param processor
+     * @param executor
+     */
     @Override
     public void registerDefaultProcessor(NettyRequestProcessor processor, ExecutorService executor) {
         this.defaultRequestProcessor = new Pair<NettyRequestProcessor, ExecutorService>(processor, executor);
@@ -327,21 +336,43 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         return processorTable.get(requestCode);
     }
 
+    /**
+     * 服务端调用客户端 同步调用
+     * @param channel 链接channel
+     * @param request 请求对象数据
+     * @param timeoutMillis 超时时间
+     * @return
+     */
     @Override
     public RemotingCommand invokeSync(final Channel channel, final RemotingCommand request, final long timeoutMillis)
         throws InterruptedException, RemotingSendRequestException, RemotingTimeoutException {
         return this.invokeSyncImpl(channel, request, timeoutMillis);
     }
 
+    /**
+     * 异步向客户端发送数据
+     * @param channel 链接channel
+     * @param request 请求对象数据
+     * @param timeoutMillis 超时时间
+     * @param invokeCallback 回调
+     */
     @Override
     public void invokeAsync(Channel channel, RemotingCommand request, long timeoutMillis, InvokeCallback invokeCallback)
         throws InterruptedException, RemotingTooMuchRequestException, RemotingTimeoutException, RemotingSendRequestException {
+        // 模板方法
         this.invokeAsyncImpl(channel, request, timeoutMillis, invokeCallback);
     }
 
+    /**
+     * 不关注返回结果的请求
+     * @param channel 链接channel
+     * @param request 请求对象数据
+     * @param timeoutMillis 超时时间
+     */
     @Override
     public void invokeOneway(Channel channel, RemotingCommand request, long timeoutMillis) throws InterruptedException,
         RemotingTooMuchRequestException, RemotingTimeoutException, RemotingSendRequestException {
+        // 单向请求
         this.invokeOnewayImpl(channel, request, timeoutMillis);
     }
 

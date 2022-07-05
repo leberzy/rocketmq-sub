@@ -147,17 +147,22 @@ public class RouteInfoManager {
         RegisterBrokerResult result = new RegisterBrokerResult();
         try {
             try {
+                // 加锁
                 this.lock.writeLock().lockInterruptibly();
 
+                // 集群下所有的brokerName集合
                 Set<String> brokerNames = this.clusterAddrTable.computeIfAbsent(clusterName, k -> new HashSet<>());
+                // 添加到集合
                 brokerNames.add(brokerName);
 
                 boolean registerFirst = false;
 
                 BrokerData brokerData = this.brokerAddrTable.get(brokerName);
                 if (null == brokerData) {
+                    // 新注册
                     registerFirst = true;
                     brokerData = new BrokerData(clusterName, brokerName, new HashMap<>());
+                    // 添加到table映射表
                     this.brokerAddrTable.put(brokerName, brokerData);
                 }
                 Map<Long, String> brokerAddrsMap = brokerData.getBrokerAddrs();

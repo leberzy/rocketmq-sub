@@ -23,6 +23,7 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 public abstract class AsyncNettyRequestProcessor implements NettyRequestProcessor {
 
     public void asyncProcessRequest(ChannelHandlerContext ctx, RemotingCommand request, RemotingResponseCallback responseCallback) throws Exception {
+        // 实际上是同步，继续进入DefaultRequestProcessor
         RemotingCommand response = processRequest(ctx, request);
         responseCallback.callback(response);
     }
