@@ -58,6 +58,7 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
  * <p> <strong>Thread Safety:</strong> After configuring and starting process, this class can be regarded as thread-safe
  * and used among multiple threads context. </p>
  */
+//
 public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
@@ -82,6 +83,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      *
      * See <a href="http://rocketmq.apache.org/docs/core-concept/">core concepts</a> for more discussion.
      */
+    // 发送事务消息是用于消息回查，可以选择生产者组下的任意一个生产者进行事务回查
     private String producerGroup;
 
     /**
@@ -99,12 +101,12 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      */
     private int sendMsgTimeout = 3000;
 
-    /**
+    /** 压缩阈值
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
-    /**
+    /** 同步发送失败后：重试次数
      * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
@@ -112,6 +114,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int retryTimesWhenSendFailed = 2;
 
     /**
+     * 异步同步发送失败后：重试次数
      * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
@@ -121,11 +124,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     /**
      * Indicate whether to retry another broker on sending failure internally.
      */
+    // 如其名：一般需要设置为true
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
      * Maximum allowed message body size in bytes.
      */
+    // 消息体最大限制
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
     /**
