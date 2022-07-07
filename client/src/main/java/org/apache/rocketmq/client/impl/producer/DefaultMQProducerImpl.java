@@ -98,20 +98,41 @@ import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 public class DefaultMQProducerImpl implements MQProducerInner {
     private final InternalLogger log = ClientLogger.getLog();
     private final Random random = new Random();
+
     private final DefaultMQProducer defaultMQProducer;
+    // 主题路由数据
     private final ConcurrentMap<String/* topic */, TopicPublishInfo> topicPublishInfoTable =
         new ConcurrentHashMap<String, TopicPublishInfo>();
+    // 钩子函数扩展点
     private final ArrayList<SendMessageHook> sendMessageHookList = new ArrayList<SendMessageHook>();
+    // 事务完成时钩子方法
     private final ArrayList<EndTransactionHook> endTransactionHookList = new ArrayList<EndTransactionHook>();
+    // RPC hook
     private final RPCHook rpcHook;
+
+    // 异步发送队列
     private final BlockingQueue<Runnable> asyncSenderThreadPoolQueue;
+
+    // 异步发送线程池
     private final ExecutorService defaultAsyncSenderExecutor;
+    // 队列检查逻辑
     protected BlockingQueue<Runnable> checkRequestQueue;
+
+    //
     protected ExecutorService checkExecutor;
+
     private ServiceState serviceState = ServiceState.CREATE_JUST;
+
+    // 客户端实例
     private MQClientInstance mQClientFactory;
+
+    // 这里的钩子方法可以抛出异常，控制消息是否发送
     private ArrayList<CheckForbiddenHook> checkForbiddenHookList = new ArrayList<CheckForbiddenHook>();
+
+    // 选择队列容错策略
     private MQFaultStrategy mqFaultStrategy = new MQFaultStrategy();
+
+    // 异步消息发送线程池
     private ExecutorService asyncSenderExecutor;
 
     // compression related
@@ -127,7 +148,10 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         this.defaultMQProducer = defaultMQProducer;
         this.rpcHook = rpcHook;
 
+        // 异步发送队列 大小5万
         this.asyncSenderThreadPoolQueue = new LinkedBlockingQueue<Runnable>(50000);
+
+        // 异步缺省线程池
         this.defaultAsyncSenderExecutor = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
             Runtime.getRuntime().availableProcessors(),
@@ -182,22 +206,29 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     public void start() throws MQClientException {
+
         this.start(true);
     }
 
     public void start(final boolean startFactory) throws MQClientException {
+
         switch (this.serviceState) {
             case CREATE_JUST:
+                // 先将启动状态设置为启动失败，后面成功后设置为启动成功！
                 this.serviceState = ServiceState.START_FAILED;
 
+                // 配置检查
                 this.checkConfig();
 
+                // CLIENT_INNER_PRODUCER用于处理消息回退用的内部生产者
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
+                    // 设置生产者实例名称为：当前进程
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
+                // 将生产者自己注册到客户端实例中（观察者模式）
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -214,6 +245,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
                 log.info("the producer [{}] start OK. sendMessageWithVIPChannel={}", this.defaultMQProducer.getProducerGroup(),
                     this.defaultMQProducer.isSendMessageWithVIPChannel());
+
+                // 标记运行中
                 this.serviceState = ServiceState.RUNNING;
                 break;
             case RUNNING:
@@ -227,15 +260,27 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 break;
         }
 
+        // 定时任务发送心跳
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
 
+        // request 发送的消息需要消费者回执一条消息
+        // 实现？
+        // 生产者msg加了一些信息，关联id，客户端id，发送到broker之后
+        // 消费者从broker拿到这条消息，检查msg类型 发现是一条需要回执的消息
+        // 消费端处理消息之后，根据msg 关联id，发送端客户id，生成回执消息，发送到broker
+        // broker拿到这条消息之后根据关联id，和客户端id发送给对应的生产者
+        // 生产者唤醒线程
+
+        // 定时任务实现处理异常回执消息，及时唤醒
         RequestFutureHolder.getInstance().startScheduledTask(this);
 
     }
 
     private void checkConfig() throws MQClientException {
+        // 生产者组不能为空，且长度小于255
         Validators.checkGroup(this.defaultMQProducer.getProducerGroup());
 
+        // 生产者组名不能使DEFAULT_PRODUCER
         if (this.defaultMQProducer.getProducerGroup().equals(MixAll.DEFAULT_PRODUCER_GROUP)) {
             throw new MQClientException("producerGroup can not equal " + MixAll.DEFAULT_PRODUCER_GROUP + ", please specify another one.",
                 null);

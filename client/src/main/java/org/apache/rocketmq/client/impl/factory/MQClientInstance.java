@@ -88,36 +88,65 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 public class MQClientInstance {
     private final static long LOCK_TIMEOUT_MILLIS = 3000;
     private final InternalLogger log = ClientLogger.getLog();
+    // 客户端配置
     private final ClientConfig clientConfig;
+    // 索引值，一般是0，一般该实例一个jvm只有一个
     private final int instanceIndex;
+    // 客户端id，ip@pid
     private final String clientId;
+    // 客户端启动时间
     private final long bootTimestamp = System.currentTimeMillis();
+    // 生产者信息
     private final ConcurrentMap<String/* group */, MQProducerInner> producerTable = new ConcurrentHashMap<String, MQProducerInner>();
+    // 消费者信息
     private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
+    // admin 信息
     private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
+    // netty客户端配置
     private final NettyClientConfig nettyClientConfig;
+
+    // 核心api实现 就是将mq业务层的数据 转换为 网络层 RemotingCommand
     private final MQClientAPIImpl mQClientAPIImpl;
+
+    //
     private final MQAdminImpl mQAdminImpl;
+    // topic路由信息
     private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
+
+    // 锁
     private final Lock lockNamesrv = new ReentrantLock();
     private final Lock lockHeartbeat = new ReentrantLock();
+    // broker物理节点映射表
     private final ConcurrentMap<String/* Broker Name */, HashMap<Long/* brokerId */, String/* address */>> brokerAddrTable =
         new ConcurrentHashMap<String, HashMap<Long, String>>();
+    // broker物理节点版本映射
     private final ConcurrentMap<String/* Broker Name */, HashMap<String/* address */, Integer>> brokerVersionTable =
         new ConcurrentHashMap<String, HashMap<String, Integer>>();
+    // 定时任务执行器
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
         @Override
         public Thread newThread(Runnable r) {
             return new Thread(r, "MQClientFactoryScheduledThread");
         }
     });
+    // 客户端处理器 用于处理ＩＯ事件
     private final ClientRemotingProcessor clientRemotingProcessor;
+
+    // pull消息service
     private final PullMessageService pullMessageService;
+    // rebalance
     private final RebalanceService rebalanceService;
+
+    // 内部生产者，用于处理消息回退，从新发送回topic
     private final DefaultMQProducer defaultMQProducer;
+    // 消费端统计
     private final ConsumerStatsManager consumerStatsManager;
+
+    // 发送心跳数量
     private final AtomicLong sendHeartbeatTimesTotal = new AtomicLong(0);
+    // 客户端服务状态
     private ServiceState serviceState = ServiceState.CREATE_JUST;
+
     private Random random = new Random();
 
     public MQClientInstance(ClientConfig clientConfig, int instanceIndex, String clientId) {
@@ -130,8 +159,13 @@ public class MQClientInstance {
         this.nettyClientConfig = new NettyClientConfig();
         this.nettyClientConfig.setClientCallbackExecutorThreads(clientConfig.getClientCallbackExecutorThreads());
         this.nettyClientConfig.setUseTLS(clientConfig.isUseTLS());
+
+        // 创建客户端协议处理器
         this.clientRemotingProcessor = new ClientRemotingProcessor(this);
+
+        // 客户端api实现对象的创建
         this.mQClientAPIImpl = new MQClientAPIImpl(this.nettyClientConfig, this.clientRemotingProcessor, rpcHook, clientConfig);
+
 
         if (this.clientConfig.getNamesrvAddr() != null) {
             this.mQClientAPIImpl.updateNameServerAddressList(this.clientConfig.getNamesrvAddr());

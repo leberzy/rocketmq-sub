@@ -51,7 +51,7 @@ public class ClientConfig {
      */
     private int pollNameServerInterval = 1000 * 30;
     /**
-     * 心跳周期
+     * 心跳周期 与broker
      * Heartbeat interval in microseconds with message broker
      */
     private int heartbeatBrokerInterval = 1000 * 30;
@@ -63,8 +63,10 @@ public class ClientConfig {
 
     //
     private long pullTimeDelayMillsWhenException = 1000;
+    // 是不是唯一模式
     private boolean unitMode = false;
     private String unitName;
+
     // 是否启用vip通道 （broker启动时会绑定两个端口，vip通道一般比普通通道IO性能更好）
     private boolean vipChannelEnabled = Boolean.parseBoolean(System.getProperty(SEND_MESSAGE_WITH_VIP_CHANNEL_PROPERTY, "false"));
 

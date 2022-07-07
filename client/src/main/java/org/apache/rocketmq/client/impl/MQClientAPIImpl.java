@@ -182,10 +182,12 @@ public class MQClientAPIImpl {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
     }
 
+    // 客户端网络层对象
     private final RemotingClient remotingClient;
     private final TopAddressing topAddressing;
     private final ClientRemotingProcessor clientRemotingProcessor;
     private String nameSrvAddr = null;
+    // 客户端配置
     private ClientConfig clientConfig;
 
     public MQClientAPIImpl(final NettyClientConfig nettyClientConfig,
@@ -193,7 +195,9 @@ public class MQClientAPIImpl {
         RPCHook rpcHook, final ClientConfig clientConfig) {
         this.clientConfig = clientConfig;
         topAddressing = new TopAddressing(MixAll.getWSAddr(), clientConfig.getUnitName());
+        // 客户端网络层对象创建
         this.remotingClient = new NettyRemotingClient(nettyClientConfig, null);
+        //
         this.clientRemotingProcessor = clientRemotingProcessor;
 
         // Inject stream rpc hook first to make reserve field signature

@@ -82,9 +82,11 @@ public class ClientRemotingProcessor extends AsyncNettyRequestProcessor implemen
             case RequestCode.GET_CONSUMER_RUNNING_INFO:
                 return this.getConsumerRunningInfo(ctx, request);
 
+                //
             case RequestCode.CONSUME_MESSAGE_DIRECTLY:
                 return this.consumeMessageDirectly(ctx, request);
 
+                // 回执消息
             case RequestCode.PUSH_REPLY_MESSAGE_TO_CLIENT:
                 return this.receiveReplyMessage(ctx, request);
             default:

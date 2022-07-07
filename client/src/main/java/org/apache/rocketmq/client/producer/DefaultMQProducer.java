@@ -61,10 +61,12 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 //
 public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
-    /**
+    /** 生产者具体实现对象
      * Wrapping internal implementations for virtually all methods presented in this class.
      */
     protected final transient DefaultMQProducerImpl defaultMQProducerImpl;
+
+
     private final InternalLogger log = ClientLogger.getLog();
     private final Set<Integer> retryResponseCodes = new CopyOnWriteArraySet<Integer>(Arrays.asList(
             ResponseCode.TOPIC_NOT_EXIST,
@@ -92,16 +94,17 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private String createTopicKey = TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC;
 
     /**
+     * 分区数
      * Number of queues to create per default topic.
      */
     private volatile int defaultTopicQueueNums = 4;
 
-    /**
+    /** 发送消息超时时间
      * Timeout for sending messages.
      */
     private int sendMsgTimeout = 3000;
 
-    /** 压缩阈值
+    /** 压缩阈值 默认4k
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
@@ -207,6 +210,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     public DefaultMQProducer(final String namespace, final String producerGroup, RPCHook rpcHook) {
         this.namespace = namespace;
         this.producerGroup = producerGroup;
+        // 创建了生产者实现对象
         defaultMQProducerImpl = new DefaultMQProducerImpl(this, rpcHook);
     }
 
