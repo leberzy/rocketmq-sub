@@ -274,7 +274,9 @@ public class MQClientInstance {
                     this.pullMessageService.start();
                     // Start rebalance service
                     this.rebalanceService.start();
+
                     // Start push service
+                    // 启动内部生产者对象 处理消息回退
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
                     this.serviceState = ServiceState.RUNNING;
@@ -289,6 +291,7 @@ public class MQClientInstance {
 
     private void startScheduledTask() {
         if (null == this.clientConfig.getNamesrvAddr()) {
+
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
                 @Override
@@ -307,6 +310,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // 从name server中拉取主题路由信息
                     MQClientInstance.this.updateTopicRouteInfoFromNameServer();
                 } catch (Exception e) {
                     log.error("ScheduledTask updateTopicRouteInfoFromNameServer exception", e);
@@ -314,12 +318,17 @@ public class MQClientInstance {
             }
         }, 10, this.clientConfig.getPollNameServerInterval(), TimeUnit.MILLISECONDS);
 
+        // 定时任务2：
+        // 任务一：清理下线的broker，检查客户端路由表中不包含的address清理掉，如果被清理的brokerName的节点都没有了 需要将broker数据删除
+        // 任务二：发送心跳数据给所有的broker
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
             public void run() {
                 try {
+                    // 清理下线的broker
                     MQClientInstance.this.cleanOfflineBroker();
+                    // 发送心跳数据
                     MQClientInstance.this.sendHeartbeatToAllBrokerWithLock();
                 } catch (Exception e) {
                     log.error("ScheduledTask sendHeartbeatToAllBroker exception", e);
@@ -327,11 +336,13 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        // 定时任务3：持久化消费者消费记录
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
             public void run() {
                 try {
+                    // 持久化消费者消费记录 消费位置 offset
                     MQClientInstance.this.persistAllConsumerOffset();
                 } catch (Exception e) {
                     log.error("ScheduledTask persistAllConsumerOffset exception", e);
@@ -339,11 +350,13 @@ public class MQClientInstance {
             }
         }, 1000 * 10, this.clientConfig.getPersistConsumerOffsetInterval(), TimeUnit.MILLISECONDS);
 
+        // 定时任务4：动态调整消费者的线程池
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
             public void run() {
                 try {
+                    //
                     MQClientInstance.this.adjustThreadPool();
                 } catch (Exception e) {
                     log.error("ScheduledTask adjustThreadPool exception", e);
@@ -389,6 +402,7 @@ public class MQClientInstance {
             }
         }
 
+        // 从name server上拉取数据
         for (String topic : topicList) {
             this.updateTopicRouteInfoFromNameServer(topic);
         }
@@ -563,7 +577,9 @@ public class MQClientInstance {
     }
 
     private void sendHeartbeatToAllBroker() {
+        // 搜集所有的生产者和消费者数据信息
         final HeartbeatData heartbeatData = this.prepareHeartbeatData();
+        //
         final boolean producerEmpty = heartbeatData.getProducerDataSet().isEmpty();
         final boolean consumerEmpty = heartbeatData.getConsumerDataSet().isEmpty();
         if (producerEmpty && consumerEmpty) {
@@ -573,6 +589,7 @@ public class MQClientInstance {
 
         if (!this.brokerAddrTable.isEmpty()) {
             long times = this.sendHeartbeatTimesTotal.getAndIncrement();
+            // 遍历broker
             Iterator<Entry<String, HashMap<Long, String>>> it = this.brokerAddrTable.entrySet().iterator();
             while (it.hasNext()) {
                 Entry<String, HashMap<Long, String>> entry = it.next();
@@ -589,6 +606,7 @@ public class MQClientInstance {
                             }
 
                             try {
+                                // 发送心跳
                                 int version = this.mQClientAPIImpl.sendHeartbeat(addr, heartbeatData, clientConfig.getMqClientApiTimeout());
                                 if (!this.brokerVersionTable.containsKey(brokerName)) {
                                     this.brokerVersionTable.put(brokerName, new HashMap<String, Integer>(4));
@@ -654,9 +672,11 @@ public class MQClientInstance {
                             }
                         }
                     } else {
+                        // 定时任务拉取最新路由数据 从nameServer
                         topicRouteData = this.mQClientAPIImpl.getTopicRouteInfoFromNameServer(topic, clientConfig.getMqClientApiTimeout());
                     }
                     if (topicRouteData != null) {
+                        // 检查本地数据和新数据是否发生变化
                         TopicRouteData old = this.topicRouteTable.get(topic);
                         boolean changed = topicRouteDataIsChange(old, topicRouteData);
                         if (!changed) {
@@ -665,9 +685,12 @@ public class MQClientInstance {
                             log.info("the topic[{}] route info changed, old[{}] ,new[{}]", topic, old, topicRouteData);
                         }
 
+                        // 数据是否发生变化
                         if (changed) {
+                            // clone
                             TopicRouteData cloneTopicRouteData = topicRouteData.cloneTopicRouteData();
 
+                            // 更新本地数据 更新本地broker物理机地址变化
                             for (BrokerData bd : topicRouteData.getBrokerDatas()) {
                                 this.brokerAddrTable.put(bd.getBrokerName(), bd.getBrokerAddrs());
                             }
@@ -681,6 +704,7 @@ public class MQClientInstance {
                                     Entry<String, MQProducerInner> entry = it.next();
                                     MQProducerInner impl = entry.getValue();
                                     if (impl != null) {
+                                        // 生产者将主题发布数据保存到本地，发布消息是使用
                                         impl.updateTopicPublishInfo(topic, publishInfo);
                                     }
                                 }
@@ -830,6 +854,7 @@ public class MQClientInstance {
         Collections.sort(old.getBrokerDatas());
         Collections.sort(now.getQueueDatas());
         Collections.sort(now.getBrokerDatas());
+        // 是否发生变化
         return !old.equals(now);
 
     }

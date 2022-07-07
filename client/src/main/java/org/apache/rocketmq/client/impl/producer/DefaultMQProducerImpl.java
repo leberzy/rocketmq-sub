@@ -582,14 +582,21 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         Message msg,
         final CommunicationMode communicationMode,
         final SendCallback sendCallback,
-        final long timeout
+        final long timeout // 超时3s
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        // 检查客户端状态：运行中
         this.makeSureStateOK();
+        // 检查消息内容
         Validators.checkMessage(msg, this.defaultMQProducer);
+        // 用于打印日志
         final long invokeID = random.nextLong();
+        //
         long beginTimestampFirst = System.currentTimeMillis();
         long beginTimestampPrev = beginTimestampFirst;
+
         long endTimestamp = beginTimestampFirst;
+
+        // 主题发送需要的路由信息
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
@@ -714,10 +721,15 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     private TopicPublishInfo tryToFindTopicPublishInfo(final String topic) {
+        // 根据topic查找 生产者本地发布信息记录表中查找
         TopicPublishInfo topicPublishInfo = this.topicPublishInfoTable.get(topic);
+        // 为null，或状态不正确
         if (null == topicPublishInfo || !topicPublishInfo.ok()) {
+            // 先写一条空信息
             this.topicPublishInfoTable.putIfAbsent(topic, new TopicPublishInfo());
+            // 从客户端去查找更新 和定时任务走相同的逻辑
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic);
+            //
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
         }
 
