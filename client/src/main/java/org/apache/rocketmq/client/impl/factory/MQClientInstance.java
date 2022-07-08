@@ -662,9 +662,13 @@ public class MQClientInstance {
                 try {
                     TopicRouteData topicRouteData;
                     if (isDefault && defaultMQProducer != null) {
+                        // 发送消息时，topic还没有创建，逻辑就走到这里了
+                        // 先获取opicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC=TBW102 这个topic的路由数据
                         topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(),
                             clientConfig.getMqClientApiTimeout());
+                        // 这个TBW102是默认topic，在nameServer中肯定是存在的
                         if (topicRouteData != null) {
+                            // 复制一份配置，队列数
                             for (QueueData data : topicRouteData.getQueueDatas()) {
                                 int queueNums = Math.min(defaultMQProducer.getDefaultTopicQueueNums(), data.getReadQueueNums());
                                 data.setReadQueueNums(queueNums);

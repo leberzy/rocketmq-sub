@@ -454,22 +454,25 @@ public class MQClientAPIImpl {
     }
 
     public SendResult sendMessage(
-        final String addr,
-        final String brokerName,
-        final Message msg,
-        final SendMessageRequestHeader requestHeader,
-        final long timeoutMillis,
-        final CommunicationMode communicationMode,
-        final SendCallback sendCallback,
-        final TopicPublishInfo topicPublishInfo,
-        final MQClientInstance instance,
-        final int retryTimesWhenSendFailed,
-        final SendMessageContext context,
-        final DefaultMQProducerImpl producer
+        final String addr,// broker地址
+        final String brokerName,// brokerName
+        final Message msg,// 消息
+        final SendMessageRequestHeader requestHeader,// 请求头
+        final long timeoutMillis,// 超时时间
+        final CommunicationMode communicationMode,// 发送模式
+        final SendCallback sendCallback,// callback
+        final TopicPublishInfo topicPublishInfo,// topic信息
+        final MQClientInstance instance,// 客户端
+        final int retryTimesWhenSendFailed,// 重试次数
+        final SendMessageContext context,// context
+        final DefaultMQProducerImpl producer// 生产者内部实现对象
     ) throws RemotingException, MQBrokerException, InterruptedException {
+
+        //
         long beginStartTime = System.currentTimeMillis();
         RemotingCommand request = null;
         String msgType = msg.getProperty(MessageConst.PROPERTY_MESSAGE_TYPE);
+        // 是否是需要回执消息
         boolean isReply = msgType != null && msgType.equals(MixAll.REPLY_MESSAGE_FLAG);
         if (isReply) {
             if (sendSmartMsg) {
@@ -479,15 +482,19 @@ public class MQClientAPIImpl {
                 request = RemotingCommand.createRequestCommand(RequestCode.SEND_REPLY_MESSAGE, requestHeader);
             }
         } else {
+            // 不是需要回执消息
             if (sendSmartMsg || msg instanceof MessageBatch) {
+                // 创建remotingCommand
                 SendMessageRequestHeaderV2 requestHeaderV2 = SendMessageRequestHeaderV2.createSendMessageRequestHeaderV2(requestHeader);
                 request = RemotingCommand.createRequestCommand(msg instanceof MessageBatch ? RequestCode.SEND_BATCH_MESSAGE : RequestCode.SEND_MESSAGE_V2, requestHeaderV2);
             } else {
                 request = RemotingCommand.createRequestCommand(RequestCode.SEND_MESSAGE, requestHeader);
             }
         }
+        // 消息体
         request.setBody(msg.getBody());
 
+        // 发送模式
         switch (communicationMode) {
             case ONEWAY:
                 this.remotingClient.invokeOneway(addr, request, timeoutMillis);
@@ -502,10 +509,12 @@ public class MQClientAPIImpl {
                     retryTimesWhenSendFailed, times, context, producer);
                 return null;
             case SYNC:
+                //
                 long costTimeSync = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTimeSync) {
                     throw new RemotingTooMuchRequestException("sendMessage call timeout");
                 }
+                // 发送
                 return this.sendMessageSync(addr, brokerName, msg, timeoutMillis - costTimeSync, request);
             default:
                 assert false;
@@ -522,8 +531,10 @@ public class MQClientAPIImpl {
         final long timeoutMillis,
         final RemotingCommand request
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        // 调用网络客户端开始用netty发送到broker
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
         assert response != null;
+        // broker的响应结果处理
         return this.processSendResponse(brokerName, msg, response, addr);
     }
 
@@ -658,7 +669,9 @@ public class MQClientAPIImpl {
         final String addr
     ) throws MQBrokerException, RemotingCommandException {
         SendStatus sendStatus;
+        // 发送状态解析
         switch (response.getCode()) {
+            // 根据broker的响应结果
             case ResponseCode.FLUSH_DISK_TIMEOUT: {
                 sendStatus = SendStatus.FLUSH_DISK_TIMEOUT;
                 break;
