@@ -19,10 +19,16 @@ package org.apache.rocketmq.store;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ReferenceResource {
+    // 文件缓冲区引用数量，默认1
     protected final AtomicLong refCount = new AtomicLong(1);
+    // 存活状态，资源处于非存活状态 - 不可用
     protected volatile boolean available = true;
+    // 执行完子类的cleanUp() 资源完全释放
     protected volatile boolean cleanupOver = false;
+    // 第一次shutdown时间 第一次关闭资源可能失败，外部程序可能还依耐当前资源（refCount>0,此时记录初次关闭资源的时间）
+    // 之后 再次关闭该资源的时候，会传递一个interval 参数，如果系统当前时间-firstShutdownTimestamp》interval 强制关闭
     private volatile long firstShutdownTimestamp = 0;
+
 
     public synchronized boolean hold() {
         if (this.isAvailable()) {
@@ -43,10 +49,13 @@ public abstract class ReferenceResource {
     public void shutdown(final long intervalForcibly) {
         if (this.available) {
             this.available = false;
+            // 初次关闭时间
             this.firstShutdownTimestamp = System.currentTimeMillis();
+            // 引用计数-1
             this.release();
         } else if (this.getRefCount() > 0) {
             if ((System.currentTimeMillis() - this.firstShutdownTimestamp) >= intervalForcibly) {
+                // 强制关闭
                 this.refCount.set(-1000 - this.getRefCount());
                 this.release();
             }
@@ -54,10 +63,13 @@ public abstract class ReferenceResource {
     }
 
     public void release() {
+        // -1
         long value = this.refCount.decrementAndGet();
+        //
         if (value > 0)
             return;
 
+        // 当前资源无其他程序依赖，可以释放
         synchronized (this) {
 
             this.cleanupOver = this.cleanup(value);

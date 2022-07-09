@@ -44,33 +44,52 @@ import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
 
 public class MappedFile extends ReferenceResource {
+    // 内存页大小
     public static final int OS_PAGE_SIZE = 1024 * 4;
+
     protected static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
+    // 当前进程下 所有的mappedFile占用的总虚拟内存大小
     private static final AtomicLong TOTAL_MAPPED_VIRTUAL_MEMORY = new AtomicLong(0);
 
+    // 当前进程下所有的mappedFile个数
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
+
+    // 当前mappedFile数据写入点
     protected final AtomicInteger wrotePosition = new AtomicInteger(0);
+    // 当前mappedFile数据提交点
     protected final AtomicInteger committedPosition = new AtomicInteger(0);
+    // 当前mappedFile数据罗盘点（flushedPosition）之前的数据都是安全的，flushedPosition-wrotePosition之间的数据还是脏页
     private final AtomicInteger flushedPosition = new AtomicInteger(0);
+    // 文件大小
     protected int fileSize;
+    // 文件通道
     protected FileChannel fileChannel;
     /**
      * Message will put to here first, and then reput to FileChannel if writeBuffer is not null.
      */
     protected ByteBuffer writeBuffer = null;
     protected TransientStorePool transientStorePool = null;
+
+    // 文件名(commitLog，consumeQueue:文件名是第一条消息的物理偏移量,)
     private String fileName;
+    //
     private long fileFromOffset;
+    // 文件对像
     private File file;
+    // 内存映射缓冲区
     private MappedByteBuffer mappedByteBuffer;
+
     private volatile long storeTimestamp = 0;
+    // 当前文件如果是目录内 有效文件的首文件 该值为TRUE
     private boolean firstCreateInQueue = false;
 
     public MappedFile() {
     }
 
+    //
     public MappedFile(final String fileName, final int fileSize) throws IOException {
+        // 文件名，文件大小
         init(fileName, fileSize);
     }
 
@@ -155,6 +174,7 @@ public class MappedFile extends ReferenceResource {
     public void init(final String fileName, final int fileSize,
         final TransientStorePool transientStorePool) throws IOException {
         init(fileName, fileSize);
+        //
         this.writeBuffer = transientStorePool.borrowBuffer();
         this.transientStorePool = transientStorePool;
     }
@@ -162,17 +182,24 @@ public class MappedFile extends ReferenceResource {
     private void init(final String fileName, final int fileSize) throws IOException {
         this.fileName = fileName;
         this.fileSize = fileSize;
+        // 文件
         this.file = new File(fileName);
+        // 文件起始
         this.fileFromOffset = Long.parseLong(this.file.getName());
         boolean ok = false;
 
+        // 创建目录
         ensureDirOK(this.file.getParent());
 
         try {
+            // 创建文件通道 可读写
             this.fileChannel = new RandomAccessFile(this.file, "rw").getChannel();
+            // 文件内存映射缓冲区
             this.mappedByteBuffer = this.fileChannel.map(MapMode.READ_WRITE, 0, fileSize);
+            //
             TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(fileSize);
             TOTAL_MAPPED_FILES.incrementAndGet();
+
             ok = true;
         } catch (FileNotFoundException e) {
             log.error("Failed to create file " + this.fileName, e);
