@@ -20,9 +20,13 @@ package org.apache.rocketmq.store;
  * When write a message to the commit log, returns code
  */
 public enum AppendMessageStatus {
+    // success
     PUT_OK,
+    // 到文件尾部了
     END_OF_FILE,
+    // 超过大小了
     MESSAGE_SIZE_EXCEEDED,
+    //
     PROPERTIES_SIZE_EXCEEDED,
     UNKNOWN_ERROR,
 }

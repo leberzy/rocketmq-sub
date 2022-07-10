@@ -43,6 +43,12 @@ import org.apache.rocketmq.store.config.MessageStoreConfig;
 import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
 
+/**
+ * {@link #init(String, int)} 初始化方法
+ * {@link #selectMappedBuffer(int)} 根据偏移量查找一个切片
+ * {@link #flush(int)} 刷盘 0：强制刷盘，>0: 最小的刷盘页数
+ * {@link #appendMessagesInner(MessageExt, AppendMessageCallback, PutMessageContext)} 追加数据内容写入
+ */
 public class MappedFile extends ReferenceResource {
     // 内存页大小
     public static final int OS_PAGE_SIZE = 1024 * 4;
@@ -241,23 +247,35 @@ public class MappedFile extends ReferenceResource {
         assert messageExt != null;
         assert cb != null;
 
+        // 当前文件的写入位点
         int currentPos = this.wrotePosition.get();
 
+        // 条件成立：说明文件还可以继续写
         if (currentPos < this.fileSize) {
+            // 创建文件切片
             ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
+            // 切片的写入位点设置
             byteBuffer.position(currentPos);
+            //
             AppendMessageResult result;
+            // 单条消息
             if (messageExt instanceof MessageExtBrokerInner) {
+                // 追加数据 具体追加逻辑由钩子方法去实现
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos,
                         (MessageExtBrokerInner) messageExt, putMessageContext);
+                //
             } else if (messageExt instanceof MessageExtBatch) {
+                // 批量写入
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos,
                         (MessageExtBatch) messageExt, putMessageContext);
             } else {
                 return new AppendMessageResult(AppendMessageStatus.UNKNOWN_ERROR);
             }
+            // 位点更新
             this.wrotePosition.addAndGet(result.getWroteBytes());
+            // 存储时间
             this.storeTimestamp = result.getStoreTimestamp();
+            //
             return result;
         }
         log.error("MappedFile.appendMessage return null, wrotePosition: {} fileSize: {}", currentPos, this.fileSize);
@@ -275,10 +293,12 @@ public class MappedFile extends ReferenceResource {
             try {
                 ByteBuffer buf = this.mappedByteBuffer.slice();
                 buf.position(currentPos);
+                // 直接写入
                 buf.put(data);
             } catch (Throwable e) {
                 log.error("Error occurred when append message to mappedFile.", e);
             }
+            // 更新写入数据位点
             this.wrotePosition.addAndGet(data.length);
             return true;
         }
@@ -311,11 +331,14 @@ public class MappedFile extends ReferenceResource {
     }
 
     /**
+     * @param flushLeastPages 刷盘最小页数，为0时强制刷盘
      * @return The current flushed position
      */
     public int flush(final int flushLeastPages) {
         if (this.isAbleToFlush(flushLeastPages)) {
+            // 保证刷盘的过程中资源不被释放
             if (this.hold()) {
+                // 写入位点
                 int value = getReadPosition();
 
                 try {
@@ -380,18 +403,28 @@ public class MappedFile extends ReferenceResource {
         }
     }
 
+    /**
+     *
+     * @param flushLeastPages 刷盘的最小页数（0：强制刷盘，>0:需要脏页数据达到flushLeastPages 才进行物理刷盘））
+     * @return
+     */
     private boolean isAbleToFlush(final int flushLeastPages) {
+        // 当前已经刷盘的位点
         int flush = this.flushedPosition.get();
+        // 当前写入位点
         int write = getReadPosition();
 
+        // 文件写满了？
         if (this.isFull()) {
             return true;
         }
 
         if (flushLeastPages > 0) {
+            // 脏页是否达到最小刷盘页数大小
             return ((write / OS_PAGE_SIZE) - (flush / OS_PAGE_SIZE)) >= flushLeastPages;
         }
 
+        // =0: 强制刷盘
         return write > flush;
     }
 
@@ -444,13 +477,21 @@ public class MappedFile extends ReferenceResource {
     }
 
     public SelectMappedBufferResult selectMappedBuffer(int pos) {
+        // 可读位置 = writePosition
         int readPosition = getReadPosition();
+        // 有效位点
         if (pos < readPosition && pos >= 0) {
-            if (this.hold()) {
+            //
+            if (this.hold()) {// 资源计数+1
+                // 切片
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
+                // 设置位置
                 byteBuffer.position(pos);
+                // 可读大小
                 int size = readPosition - pos;
+                // 切片
                 ByteBuffer byteBufferNew = byteBuffer.slice();
+                //
                 byteBufferNew.limit(size);
                 return new SelectMappedBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             }
