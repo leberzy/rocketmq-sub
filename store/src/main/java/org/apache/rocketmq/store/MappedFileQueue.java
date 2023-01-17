@@ -178,8 +178,7 @@ public class MappedFileQueue {
         // 迭代
         for (File file : files) {
             if (file.length() != this.mappedFileSize) {
-                log.warn(file + "\t" + file.length()
-                        + " length not matched message store config value, please check it manually");
+                log.warn(file + "\t" + file.length() + " length not matched message store config value, please check it manually");
                 return false;
             }
 
@@ -223,6 +222,7 @@ public class MappedFileQueue {
         // 先尝试获取
         MappedFile mappedFileLast = getLastMappedFile();
 
+        // mappedFiles里没有文件
         if (mappedFileLast == null) {
             // 没有获取到
             createOffset = startOffset - (startOffset % this.mappedFileSize);

@@ -16,6 +16,7 @@
  */
 package org.apache.rocketmq.store;
 
+import com.alibaba.fastjson.util.IOUtils;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import java.io.File;
@@ -432,10 +433,12 @@ public class MappedFile extends ReferenceResource {
         int commit = this.committedPosition.get();
         int write = this.wrotePosition.get();
 
+        // 文件满了
         if (this.isFull()) {
             return true;
         }
 
+        // 剩余待提交达到提交的数据量
         if (commitLeastPages > 0) {
             return ((write / OS_PAGE_SIZE) - (commit / OS_PAGE_SIZE)) >= commitLeastPages;
         }
@@ -456,9 +459,13 @@ public class MappedFile extends ReferenceResource {
     }
 
     public SelectMappedBufferResult selectMappedBuffer(int pos, int size) {
+        // 可以读取的位置（writePos或commitPos）
         int readPosition = getReadPosition();
+        // 能够满足大小
         if ((pos + size) <= readPosition) {
+            // 增加引用计数
             if (this.hold()) {
+                // 返回切片
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
                 byteBuffer.position(pos);
                 ByteBuffer byteBufferNew = byteBuffer.slice();
@@ -630,25 +637,31 @@ public class MappedFile extends ReferenceResource {
         this.firstCreateInQueue = firstCreateInQueue;
     }
 
+    // 内存加锁
     public void mlock() {
         final long beginTime = System.currentTimeMillis();
+        // 内存起始地址
         final long address = ((DirectBuffer) (this.mappedByteBuffer)).address();
         Pointer pointer = new Pointer(address);
         {
+            // 加锁
             int ret = LibC.INSTANCE.mlock(pointer, new NativeLong(this.fileSize));
             log.info("mlock {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }
 
         {
+            // 建议操作系统加载数据到内存，将来可能会使用
             int ret = LibC.INSTANCE.madvise(pointer, new NativeLong(this.fileSize), LibC.MADV_WILLNEED);
             log.info("madvise {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }
     }
 
+    // 内存解锁
     public void munlock() {
         final long beginTime = System.currentTimeMillis();
         final long address = ((DirectBuffer) (this.mappedByteBuffer)).address();
         Pointer pointer = new Pointer(address);
+        // 解锁
         int ret = LibC.INSTANCE.munlock(pointer, new NativeLong(this.fileSize));
         log.info("munlock {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
     }
