@@ -96,19 +96,30 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     private static final long BROKER_SUSPEND_MAX_TIME_MILLIS = 1000 * 15;
     private static final long CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND = 1000 * 30;
     private final InternalLogger log = ClientLogger.getLog();
+    // config配置对象
     private final DefaultMQPushConsumer defaultMQPushConsumer;
+    // rebalance工具
     private final RebalanceImpl rebalanceImpl = new RebalancePushImpl(this);
+
     private final ArrayList<FilterMessageHook> filterMessageHookList = new ArrayList<FilterMessageHook>();
     private final long consumerStartTimestamp = System.currentTimeMillis();
     private final ArrayList<ConsumeMessageHook> consumeMessageHookList = new ArrayList<ConsumeMessageHook>();
     private final RPCHook rpcHook;
+    // 服务状态
     private volatile ServiceState serviceState = ServiceState.CREATE_JUST;
+    // rocketmq客户端实例(每个jvm只有一个实例)
     private MQClientInstance mQClientFactory;
+    // 拉取消息工具封装
     private PullAPIWrapper pullAPIWrapper;
+    // 是否暂停
     private volatile boolean pause = false;
+    // 是否顺序消费
     private boolean consumeOrderly = false;
+    // 消息监听器
     private MessageListener messageListenerInner;
+    // 消息消费进度offset存储
     private OffsetStore offsetStore;
+    //
     private ConsumeMessageService consumeMessageService;
     private long queueFlowControlTimes = 0;
     private long queueMaxSpanFlowControlTimes = 0;
