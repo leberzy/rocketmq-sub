@@ -1283,13 +1283,17 @@ public class CommitLog {
      * GroupCommit Service
      */
     class GroupCommitService extends FlushCommitLogService {
+        // 读写分离
+        // 写队列: 刷新请求提交到该队列
         private volatile LinkedList<GroupCommitRequest> requestsWrite = new LinkedList<GroupCommitRequest>();
+        // 读队列：刷新线程读取请求的队列，刷新线程进行刷新时，先将写队列数据赋值给读队列
         private volatile LinkedList<GroupCommitRequest> requestsRead = new LinkedList<GroupCommitRequest>();
         private final PutMessageSpinLock lock = new PutMessageSpinLock();
 
         public synchronized void putRequest(final GroupCommitRequest request) {
             lock.lock();
             try {
+                // 加锁提交刷盘请求
                 this.requestsWrite.add(request);
             } finally {
                 lock.unlock();
@@ -1300,6 +1304,7 @@ public class CommitLog {
         private void swapRequests() {
             lock.lock();
             try {
+                // 加锁交换读写队列
                 LinkedList<GroupCommitRequest> tmp = this.requestsWrite;
                 this.requestsWrite = this.requestsRead;
                 this.requestsRead = tmp;
@@ -1309,6 +1314,7 @@ public class CommitLog {
         }
 
         private void doCommit() {
+            // 交换后的读队列不为空
             if (!this.requestsRead.isEmpty()) {
                 for (GroupCommitRequest req : this.requestsRead) {
                     // There may be a message in the next file, so a maximum of
