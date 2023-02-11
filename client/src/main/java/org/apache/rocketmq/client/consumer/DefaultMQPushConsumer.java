@@ -68,6 +68,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     /**
      * Internal implementation. Most of the functions herein are delegated to it.
      */
+    // 内部实现，具体的逻辑封装在里面
     protected final transient DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
 
     /**
@@ -133,6 +134,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * Implying Seventeen twelve and 01 seconds on December 23, 2013 year<br>
      * Default backtracking consumption time Half an hour ago.
      */
+    // 从哪个时间开始消费（第一次启动时）
     private String consumeTimestamp = UtilAll.timeMillisToHumanString3(System.currentTimeMillis() - (1000 * 60 * 30));
 
     /**

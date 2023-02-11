@@ -1319,12 +1319,16 @@ public class CommitLog {
                 for (GroupCommitRequest req : this.requestsRead) {
                     // There may be a message in the next file, so a maximum of
                     // two times the flush
+                    // 这里是2的原因是可能上一次的文件刚好写满了，写到了下一个文件
+                    // 刷盘了上一个文件还要继续刷盘下一个文件
                     boolean flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
                     for (int i = 0; i < 2 && !flushOK; i++) {
                         CommitLog.this.mappedFileQueue.flush(0);
+                        // 刷的是上一个文件，这个的getFlushedWhere依然小于getNextOffset
                         flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
                     }
 
+                    // 唤醒发起刷盘请求的还在等待中的请求线程
                     req.wakeupCustomer(flushOK ? PutMessageStatus.PUT_OK : PutMessageStatus.FLUSH_DISK_TIMEOUT);
                 }
 
@@ -1332,11 +1336,12 @@ public class CommitLog {
                 if (storeTimestamp > 0) {
                     CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);
                 }
-
+                // 处理完了读取队列
                 this.requestsRead = new LinkedList<>();
             } else {
                 // Because of individual messages is set to not sync flush, it
                 // will come to this process
+                // 正常的10毫秒超时时间后会进入到这里
                 CommitLog.this.mappedFileQueue.flush(0);
             }
         }
@@ -1346,6 +1351,7 @@ public class CommitLog {
 
             while (!this.isStopped()) {
                 try {
+                    // 同步模型中默认间隔10ms进行一次刷盘
                     this.waitForRunning(10);
                     this.doCommit();
                 } catch (Exception e) {
@@ -1362,6 +1368,7 @@ public class CommitLog {
             }
 
             synchronized (this) {
+                // 交换读写队列
                 this.swapRequests();
             }
 
