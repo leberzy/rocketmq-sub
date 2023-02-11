@@ -114,7 +114,7 @@ public class RebalancePushImpl extends RebalanceImpl {
 
         if (pq.hasTempMessage()) {
             log.info("[{}]unlockDelay, begin {} ", mq.hashCode(), mq);
-            this.defaultMQPushConsumerImpl.getmQClientFactory().getScheduledExecutorService().schedule(new Runnable() {
+            this.defaultMQPushConsumerImpl.getMqClientInstance().getScheduledExecutorService().schedule(new Runnable() {
                 @Override
                 public void run() {
                     log.info("[{}]unlockDelay, execute at once {}", mq.hashCode(), mq);
