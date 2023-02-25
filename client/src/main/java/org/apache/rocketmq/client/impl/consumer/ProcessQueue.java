@@ -190,6 +190,7 @@ public class ProcessQueue {
         return 0;
     }
 
+    // 返回消息集合中offset最小的消息offset，或者-1（pq中没消息了）
     public long removeMessage(final List<MessageExt> msgs) {
         long result = -1;
         final long now = System.currentTimeMillis();
@@ -209,6 +210,7 @@ public class ProcessQueue {
                     }
                     msgCount.addAndGet(removedCnt);
 
+                    // 这里将result(提交给broker端消费到的位点)，设置为第一个key的大小，说明了msgTreeMap中间被消费成功的数据，若是服务重启依然可能重复消费
                     if (!msgTreeMap.isEmpty()) {
                         result = msgTreeMap.firstKey();
                     }
