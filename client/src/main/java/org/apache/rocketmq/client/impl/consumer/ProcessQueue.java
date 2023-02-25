@@ -62,8 +62,11 @@ public class ProcessQueue {
     private volatile boolean dropped = false;
     private volatile long lastPullTimestamp = System.currentTimeMillis();
     private volatile long lastConsumeTimestamp = System.currentTimeMillis();
+    // 顺序消费是否获取到了锁
     private volatile boolean locked = false;
+    // 顺序消费上次加锁时间
     private volatile long lastLockTimestamp = System.currentTimeMillis();
+    // 消费是否进行中
     private volatile boolean consuming = false;
     private volatile long msgAccCnt = 0;
 
