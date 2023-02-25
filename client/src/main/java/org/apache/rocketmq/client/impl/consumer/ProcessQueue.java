@@ -141,6 +141,7 @@ public class ProcessQueue {
             this.treeMapLock.writeLock().lockInterruptibly();
             try {
                 int validMsgCnt = 0;
+                // 将消息保存到treeMap
                 for (MessageExt msg : msgs) {
                     MessageExt old = msgTreeMap.put(msg.getQueueOffset(), msg);
                     if (null == old) {
@@ -149,8 +150,10 @@ public class ProcessQueue {
                         msgSize.addAndGet(msg.getBody().length);
                     }
                 }
+                // 数量增加
                 msgCount.addAndGet(validMsgCnt);
 
+                // 么有消费线程在消费
                 if (!msgTreeMap.isEmpty() && !this.consuming) {
                     dispatchToConsume = true;
                     this.consuming = true;
@@ -160,6 +163,7 @@ public class ProcessQueue {
                     MessageExt messageExt = msgs.get(msgs.size() - 1);
                     String property = messageExt.getProperty(MessageConst.PROPERTY_MAX_OFFSET);
                     if (property != null) {
+                        // 还剩多少消息在broker端
                         long accTotal = Long.parseLong(property) - messageExt.getQueueOffset();
                         if (accTotal > 0) {
                             this.msgAccCnt = accTotal;
