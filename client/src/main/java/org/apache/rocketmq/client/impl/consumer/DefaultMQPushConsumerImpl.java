@@ -1153,6 +1153,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         this.serviceState = serviceState;
     }
 
+    // 动态调整线程池线程数量
     public void adjustThreadPool() {
         long computeAccTotal = this.computeAccumulationTotal();
         long adjustThreadPoolNumsThreshold = this.defaultMQPushConsumer.getAdjustThreadPoolNumsThreshold();

@@ -278,13 +278,18 @@ public class ProcessQueue {
         try {
             this.treeMapLock.writeLock().lockInterruptibly();
             try {
+                // 消费中的最大的offset
                 Long offset = this.consumingMsgOrderlyTreeMap.lastKey();
+                // 减去本地消息数量
                 msgCount.addAndGet(0 - this.consumingMsgOrderlyTreeMap.size());
+                // 减去本地消息大小
                 for (MessageExt msg : this.consumingMsgOrderlyTreeMap.values()) {
                     msgSize.addAndGet(0 - msg.getBody().length);
                 }
+                // 清除
                 this.consumingMsgOrderlyTreeMap.clear();
                 if (offset != null) {
+                    // 返回下一个offset
                     return offset + 1;
                 }
             } finally {
