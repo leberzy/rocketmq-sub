@@ -587,43 +587,58 @@ public class DefaultMessageStore implements MessageStore {
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
+        // 获取队列信息
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
+            // 队列的当前范围
             minOffset = consumeQueue.getMinOffsetInQueue();
             maxOffset = consumeQueue.getMaxOffsetInQueue();
 
+            //
             if (maxOffset == 0) {
+                // 还没有消息
                 status = GetMessageStatus.NO_MESSAGE_IN_QUEUE;
                 nextBeginOffset = nextOffsetCorrection(offset, 0);
             } else if (offset < minOffset) {
+                // 小于最小的偏移量了
                 status = GetMessageStatus.OFFSET_TOO_SMALL;
                 nextBeginOffset = nextOffsetCorrection(offset, minOffset);
             } else if (offset == maxOffset) {
+                // 消息已经达到最新的消息了
                 status = GetMessageStatus.OFFSET_OVERFLOW_ONE;
                 nextBeginOffset = nextOffsetCorrection(offset, offset);
             } else if (offset > maxOffset) {
                 status = GetMessageStatus.OFFSET_OVERFLOW_BADLY;
+                // 重置正确的查询位置
                 nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
             } else {
+                // 查询消息位置正确， min< offset <max
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
+                        // 默认值
                         status = GetMessageStatus.NO_MATCHED_MESSAGE;
-
                         long nextPhyFileStartOffset = Long.MIN_VALUE;
                         long maxPhyOffsetPulling = 0;
 
                         int i = 0;
+                        // 16000/20=800, maxMsgNums客户端默认32
                         final int maxFilterMessageCount = Math.max(16000, maxMsgNums * ConsumeQueue.CQ_STORE_UNIT_SIZE);
+                        // 默认true
                         final boolean diskFallRecorded = this.messageStoreConfig.isDiskFallRecorded();
 
                         getResult = new GetMessageResult(maxMsgNums);
 
                         ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
                         for (; i < bufferConsumeQueue.getSize() && i < maxFilterMessageCount; i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
+                            // 读取cq中的一条记录
+                            // 日志在commitLog中的物理偏移量
                             long offsetPy = bufferConsumeQueue.getByteBuffer().getLong();
+                            // 消息数据大小
                             int sizePy = bufferConsumeQueue.getByteBuffer().getInt();
+                            // hash
                             long tagsCode = bufferConsumeQueue.getByteBuffer().getLong();
+
 
                             maxPhyOffsetPulling = offsetPy;
 
@@ -632,8 +647,10 @@ public class DefaultMessageStore implements MessageStore {
                                     continue;
                             }
 
+                            // 检查消息是否在磁盘中（粗略判断，根据当前CommitLog的最大偏移量-查询偏移量 是否大于物理内存）
                             boolean isInDisk = checkInDiskByCommitOffset(offsetPy, maxOffsetPy);
 
+                            // 判断是否查询足够的消息了
                             if (this.isTheBatchFull(sizePy, maxMsgNums, getResult.getBufferTotalSize(), getResult.getMessageCount(),
                                 isInDisk)) {
                                 break;
@@ -661,6 +678,7 @@ public class DefaultMessageStore implements MessageStore {
                                 continue;
                             }
 
+                            // 这里拉取物理消息
                             SelectMappedBufferResult selectResult = this.commitLog.getMessage(offsetPy, sizePy);
                             if (null == selectResult) {
                                 if (getResult.getBufferTotalSize() == 0) {

@@ -542,11 +542,14 @@ public class ConsumeQueue {
     }
 
     public SelectMappedBufferResult getIndexBuffer(final long startIndex) {
+        // 消息量
         int mappedFileSize = this.mappedFileSize;
         long offset = startIndex * CQ_STORE_UNIT_SIZE;
         if (offset >= this.getMinLogicOffset()) {
+            // 找到对应的mappedFile
             MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset);
             if (mappedFile != null) {
+                // 取模的原因是，mapped可能滚动了好几个了，offset需要找到在文件内的相对偏移量
                 return mappedFile.selectMappedBuffer((int) (offset % mappedFileSize));
             }
         }
