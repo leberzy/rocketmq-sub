@@ -1351,6 +1351,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
         Validators.checkMessage(msg, this.defaultMQProducer);
 
+        // 设置事务消息
         SendResult sendResult = null;
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_TRANSACTION_PREPARED, "true");
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_PRODUCER_GROUP, this.defaultMQProducer.getProducerGroup());
@@ -1439,6 +1440,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         } else {
             id = MessageDecoder.decodeMessageId(sendResult.getMsgId());
         }
+        // 事务id
         String transactionId = sendResult.getTransactionId();
         final String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(sendResult.getMessageQueue().getBrokerName());
         EndTransactionRequestHeader requestHeader = new EndTransactionRequestHeader();

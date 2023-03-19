@@ -23,6 +23,7 @@ import org.apache.rocketmq.common.protocol.NamespaceUtil;
 import org.apache.rocketmq.remoting.RPCHook;
 
 public class TransactionMQProducer extends DefaultMQProducer {
+
     private TransactionCheckListener transactionCheckListener;
     private int checkThreadPoolMinSize = 1;
     private int checkThreadPoolMaxSize = 1;

@@ -312,6 +312,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
         }
 
         CompletableFuture<PutMessageResult> putMessageResult = null;
+        // 事务消息
         String transFlag = origProps.get(MessageConst.PROPERTY_TRANSACTION_PREPARED);
         if (Boolean.parseBoolean(transFlag)) {
             if (this.brokerController.getBrokerConfig().isRejectTransactionMessage()) {
@@ -443,6 +444,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgInner.getProperties()));
         PutMessageResult putMessageResult = null;
         Map<String, String> oriProps = MessageDecoder.string2messageProperties(requestHeader.getProperties());
+        // 事务消息
         String traFlag = oriProps.get(MessageConst.PROPERTY_TRANSACTION_PREPARED);
         if (Boolean.parseBoolean(traFlag)
             && !(msgInner.getReconsumeTimes() > 0 && msgInner.getDelayTimeLevel() > 0)) { //For client under version 4.6.1

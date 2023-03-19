@@ -201,11 +201,15 @@ public class TransactionalMessageBridge {
     }
 
     private MessageExtBrokerInner parseHalfMessageInner(MessageExtBrokerInner msgInner) {
+        // REAL_TOPIC = topic
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_TOPIC, msgInner.getTopic());
+        // REAL_QID = queueId
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID,
             String.valueOf(msgInner.getQueueId()));
+        // 设置非事务消息
         msgInner.setSysFlag(
             MessageSysFlag.resetTransactionValue(msgInner.getSysFlag(), MessageSysFlag.TRANSACTION_NOT_TYPE));
+        // 发送到指定的topic = RMQ_SYS_TRANS_HALF_TOPIC
         msgInner.setTopic(TransactionalMessageUtil.buildHalfTopic());
         msgInner.setQueueId(0);
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgInner.getProperties()));
