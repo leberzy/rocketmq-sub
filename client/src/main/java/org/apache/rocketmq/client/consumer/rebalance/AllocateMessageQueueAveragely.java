@@ -36,10 +36,11 @@ public class AllocateMessageQueueAveragely extends AbstractAllocateMessageQueueS
 
         int index = cidAll.indexOf(currentCID);
         int mod = mqAll.size() % cidAll.size();
-        int averageSize =
-            mqAll.size() <= cidAll.size() ? 1 : (mod > 0 && index < mod ? mqAll.size() / cidAll.size()
-                + 1 : mqAll.size() / cidAll.size());
+        // 当前节点分几个queue
+        int averageSize =mod > 0 && index < mod ? mqAll.size() / cidAll.size() + 1 : mqAll.size() / cidAll.size();
+        // 从第几个节点开始
         int startIndex = (mod > 0 && index < mod) ? index * averageSize : index * averageSize + mod;
+        // 当前节点分配的消费分区
         int range = Math.min(averageSize, mqAll.size() - startIndex);
         for (int i = 0; i < range; i++) {
             result.add(mqAll.get((startIndex + i) % mqAll.size()));

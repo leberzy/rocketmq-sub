@@ -43,6 +43,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
     private final static InternalLogger log = ClientLogger.getLog();
     private final MQClientInstance mQClientFactory;
     private final String groupName;
+    // 每个队列消费到的位置
     private ConcurrentMap<MessageQueue, AtomicLong> offsetTable =
         new ConcurrentHashMap<MessageQueue, AtomicLong>();
 
@@ -88,7 +89,9 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
                 }
                 case READ_FROM_STORE: {
                     try {
+                        // 从broker端读取
                         long brokerOffset = this.fetchConsumeOffsetFromBroker(mq);
+                        // 更新本地
                         AtomicLong offset = new AtomicLong(brokerOffset);
                         this.updateOffset(mq, offset.get(), false);
                         return brokerOffset;
@@ -199,12 +202,14 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
     @Override
     public void updateConsumeOffsetToBroker(MessageQueue mq, long offset, boolean isOneway) throws RemotingException,
         MQBrokerException, InterruptedException, MQClientException {
+        // 获取broker地址
         FindBrokerResult findBrokerResult = this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(), MixAll.MASTER_ID, true);
         if (null == findBrokerResult) {
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(mq.getTopic());
             findBrokerResult = this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(), MixAll.MASTER_ID, false);
         }
 
+        // 封装提交dto
         if (findBrokerResult != null) {
             UpdateConsumerOffsetRequestHeader requestHeader = new UpdateConsumerOffsetRequestHeader();
             requestHeader.setTopic(mq.getTopic());
@@ -212,6 +217,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             requestHeader.setQueueId(mq.getQueueId());
             requestHeader.setCommitOffset(offset);
 
+            // 提交，分为单向提交或同步提交
             if (isOneway) {
                 this.mQClientFactory.getMQClientAPIImpl().updateConsumerOffsetOneway(
                     findBrokerResult.getBrokerAddr(), requestHeader, 1000 * 5);

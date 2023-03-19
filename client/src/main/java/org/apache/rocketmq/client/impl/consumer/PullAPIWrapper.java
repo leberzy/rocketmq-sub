@@ -54,8 +54,10 @@ public class PullAPIWrapper {
     private final MQClientInstance mQClientFactory;
     private final String consumerGroup;
     private final boolean unitMode;
+    // 队列在哪个broker上
     private ConcurrentMap<MessageQueue, AtomicLong/* brokerId */> pullFromWhichNodeTable =
         new ConcurrentHashMap<MessageQueue, AtomicLong>(32);
+
     private volatile boolean connectBrokerByUser = false;
     private volatile long defaultBrokerId = MixAll.MASTER_ID;
     private Random random = new Random(System.currentTimeMillis());
@@ -154,11 +156,15 @@ public class PullAPIWrapper {
         final CommunicationMode communicationMode,
         final PullCallback pullCallback
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+
         FindBrokerResult findBrokerResult =
             this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
                 this.recalculatePullFromWhichNode(mq), false);
+
         if (null == findBrokerResult) {
+            // 从name server拉取
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(mq.getTopic());
+            // 再次拉取broker节点信息
             findBrokerResult =
                 this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
                     this.recalculatePullFromWhichNode(mq), false);

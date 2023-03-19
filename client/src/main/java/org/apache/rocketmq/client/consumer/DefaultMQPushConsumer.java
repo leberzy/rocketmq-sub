@@ -68,6 +68,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     /**
      * Internal implementation. Most of the functions herein are delegated to it.
      */
+    // 内部实现，具体的逻辑封装在里面
     protected final transient DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
 
     /**
@@ -124,6 +125,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * </li>
      * </ul>
      */
+   // 从哪里开始消费（第一次消费时）
     private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
     /**
@@ -132,52 +134,57 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * Implying Seventeen twelve and 01 seconds on December 23, 2013 year<br>
      * Default backtracking consumption time Half an hour ago.
      */
+    // 从哪个时间开始消费（第一次启动时）
     private String consumeTimestamp = UtilAll.timeMillisToHumanString3(System.currentTimeMillis() - (1000 * 60 * 30));
 
     /**
      * Queue allocation algorithm specifying how message queues are allocated to each consumer clients.
      */
+    // 主题的队列分配策略工具
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy;
 
     /**
      * Subscription relationship
      */
+    // 订阅表达式
     private Map<String /* topic */, String /* sub expression */> subscription = new HashMap<String, String>();
 
     /**
      * Message listener
      */
+    // 消息监听器（消息处理逻辑），两种接口：MessageListenerOrderly,MessageListenerConcurrently
     private MessageListener messageListener;
 
     /**
      * Offset Storage
      */
+    // 消费者消费进度，本地存储了一份进度offset
     private OffsetStore offsetStore;
 
     /**
      * Minimum consumer thread number
      */
+    // 消费服务线程池
     private int consumeThreadMin = 20;
-
-    /**
-     * Max consumer thread number
-     */
     private int consumeThreadMax = 20;
 
     /**
      * Threshold for dynamic adjustment of the number of thread pool
      */
+    // 该参数无效了...,作废了
     private long adjustThreadPoolNumsThreshold = 100000;
 
     /**
      * Concurrently max span offset.it has no effect on sequential consumption
      */
+    // 第一条消息和最后一条消息，他俩之间的跨度不能超过2000（流控）
     private int consumeConcurrentlyMaxSpan = 2000;
 
     /**
      * Flow control threshold on queue level, each message queue will cache at most 1000 messages by default,
      * Consider the {@code pullBatchSize}, the instantaneous value may exceed the limit
      */
+    // 本地消息数据不能超过1000（流控）
     private int pullThresholdForQueue = 1000;
 
     /**
@@ -187,6 +194,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * <p>
      * The size(MB) of a message only measured by message body, so it's not accurate
      */
+    // 流控 - 本地消息大小不能超过100MB
     private int pullThresholdSizeForQueue = 100;
 
     /**
@@ -198,6 +206,7 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * For example, if the value of pullThresholdForTopic is 1000 and 10 message queues are assigned to this consumer,
      * then pullThresholdForQueue will be set to 100
      */
+    // 主题流控- 消费者消费的指定主题的所有消息不能超过多少，-1不限制
     private int pullThresholdForTopic = -1;
 
     /**
@@ -214,21 +223,25 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     /**
      * Message pull Interval
      */
+    // 两次拉取时间间隔（）
     private long pullInterval = 0;
 
     /**
      * Batch consumption size
      */
+    // 消费任务最多可消费的消息数量（默认1，每个消费任务只消费一条消息）
     private int consumeMessageBatchMaxSize = 1;
 
     /**
      * Batch pull size
      */
+    // 一次拉取的消息数量
     private int pullBatchSize = 32;
 
     /**
      * Whether update subscription relationship when every pull
      */
+    // 提交本地订阅信息
     private boolean postSubscriptionWhenPull = false;
 
     /**
@@ -243,11 +256,13 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      *
      * If messages are re-consumed more than {@link #maxReconsumeTimes} before success.
      */
+    // 消息最大重试次数（-1默认16次）
     private int maxReconsumeTimes = -1;
 
     /**
      * Suspending pulling time for cases requiring slow pulling like flow-control scenario.
      */
+    // 对于需要缓慢拉动（如流量控制方案）的情况，暂停拉动时间
     private long suspendCurrentQueueTimeMillis = 1000;
 
     /**

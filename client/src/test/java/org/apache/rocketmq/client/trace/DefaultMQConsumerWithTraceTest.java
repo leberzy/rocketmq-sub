@@ -157,8 +157,8 @@ public class DefaultMQConsumerWithTraceTest {
 
         pushConsumer.start();
 
-        mQClientFactory = spy(pushConsumerImpl.getmQClientFactory());
-        mQClientTraceFactory = spy(pushConsumerImpl.getmQClientFactory());
+        mQClientFactory = spy(pushConsumerImpl.getMqClientInstance());
+        mQClientTraceFactory = spy(pushConsumerImpl.getMqClientInstance());
 
         field = DefaultMQPushConsumerImpl.class.getDeclaredField("mQClientFactory");
         field.setAccessible(true);

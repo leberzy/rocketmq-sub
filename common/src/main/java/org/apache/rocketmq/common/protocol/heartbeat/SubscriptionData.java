@@ -29,13 +29,20 @@ import java.util.Set;
 public class SubscriptionData implements Comparable<SubscriptionData> {
     public final static String SUB_ALL = "*";
     private boolean classFilterMode = false;
+    // 针对某个topic
     private String topic;
+    // 订阅表达式
     private String subString;
+    // 把过滤的tag条件放在Set集合中
     private Set<String> tagsSet = new HashSet<String>();
+    // 将tag的hashCode放在Set集合中
     private Set<Integer> codeSet = new HashSet<Integer>();
+    // 版本，直接用时间戳
     private long subVersion = System.currentTimeMillis();
+    // 表达式类型，支持tag或SQL92
     private String expressionType = ExpressionType.TAG;
 
+    // 上传过滤类（）
     @JSONField(serialize = false)
     private String filterClassSource;
 

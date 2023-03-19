@@ -41,9 +41,11 @@ import org.apache.rocketmq.common.protocol.body.ProcessQueueInfo;
  * Queue consumption snapshot
  */
 public class ProcessQueue {
+    // rebalance加锁最大时长
     public final static long REBALANCE_LOCK_MAX_LIVE_TIME =
         Long.parseLong(System.getProperty("rocketmq.client.rebalance.lockMaxLiveTime", "30000"));
     public final static long REBALANCE_LOCK_INTERVAL = Long.parseLong(System.getProperty("rocketmq.client.rebalance.lockInterval", "20000"));
+
     private final static long PULL_MAX_IDLE_TIME = Long.parseLong(System.getProperty("rocketmq.client.pull.pullMaxIdleTime", "120000"));
     private final InternalLogger log = ClientLogger.getLog();
     private final ReadWriteLock treeMapLock = new ReentrantReadWriteLock();
@@ -60,8 +62,11 @@ public class ProcessQueue {
     private volatile boolean dropped = false;
     private volatile long lastPullTimestamp = System.currentTimeMillis();
     private volatile long lastConsumeTimestamp = System.currentTimeMillis();
+    // 顺序消费是否获取到了锁
     private volatile boolean locked = false;
+    // 顺序消费上次加锁时间
     private volatile long lastLockTimestamp = System.currentTimeMillis();
+    // 消费是否进行中
     private volatile boolean consuming = false;
     private volatile long msgAccCnt = 0;
 
@@ -136,6 +141,7 @@ public class ProcessQueue {
             this.treeMapLock.writeLock().lockInterruptibly();
             try {
                 int validMsgCnt = 0;
+                // 将消息保存到treeMap
                 for (MessageExt msg : msgs) {
                     MessageExt old = msgTreeMap.put(msg.getQueueOffset(), msg);
                     if (null == old) {
@@ -144,8 +150,10 @@ public class ProcessQueue {
                         msgSize.addAndGet(msg.getBody().length);
                     }
                 }
+                // 数量增加
                 msgCount.addAndGet(validMsgCnt);
 
+                // 么有消费线程在消费
                 if (!msgTreeMap.isEmpty() && !this.consuming) {
                     dispatchToConsume = true;
                     this.consuming = true;
@@ -155,6 +163,7 @@ public class ProcessQueue {
                     MessageExt messageExt = msgs.get(msgs.size() - 1);
                     String property = messageExt.getProperty(MessageConst.PROPERTY_MAX_OFFSET);
                     if (property != null) {
+                        // 还剩多少消息在broker端
                         long accTotal = Long.parseLong(property) - messageExt.getQueueOffset();
                         if (accTotal > 0) {
                             this.msgAccCnt = accTotal;
@@ -188,6 +197,7 @@ public class ProcessQueue {
         return 0;
     }
 
+    // 返回消息集合中offset最小的消息offset，或者-1（pq中没消息了）
     public long removeMessage(final List<MessageExt> msgs) {
         long result = -1;
         final long now = System.currentTimeMillis();
@@ -207,6 +217,7 @@ public class ProcessQueue {
                     }
                     msgCount.addAndGet(removedCnt);
 
+                    // 这里将result(提交给broker端消费到的位点)，设置为第一个key的大小，说明了msgTreeMap中间被消费成功的数据，若是服务重启依然可能重复消费
                     if (!msgTreeMap.isEmpty()) {
                         result = msgTreeMap.firstKey();
                     }
@@ -267,13 +278,18 @@ public class ProcessQueue {
         try {
             this.treeMapLock.writeLock().lockInterruptibly();
             try {
+                // 消费中的最大的offset
                 Long offset = this.consumingMsgOrderlyTreeMap.lastKey();
+                // 减去本地消息数量
                 msgCount.addAndGet(0 - this.consumingMsgOrderlyTreeMap.size());
+                // 减去本地消息大小
                 for (MessageExt msg : this.consumingMsgOrderlyTreeMap.values()) {
                     msgSize.addAndGet(0 - msg.getBody().length);
                 }
+                // 清除
                 this.consumingMsgOrderlyTreeMap.clear();
                 if (offset != null) {
+                    // 返回下一个offset
                     return offset + 1;
                 }
             } finally {

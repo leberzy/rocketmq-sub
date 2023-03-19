@@ -29,9 +29,13 @@ import org.apache.rocketmq.common.message.MessageQueue;
 
 public class RebalanceLockManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.REBALANCE_LOCK_LOGGER_NAME);
+
+    // Rebalance锁最大存活时间（多长时间不续约就算国企）
     private final static long REBALANCE_LOCK_MAX_LIVE_TIME = Long.parseLong(System.getProperty(
         "rocketmq.broker.rebalance.lockMaxLiveTime", "60000"));
+    //
     private final Lock lock = new ReentrantLock();
+    // <消费组, <queueId,LockEntry>>
     private final ConcurrentMap<String/* group */, ConcurrentHashMap<MessageQueue, LockEntry>> mqLockTable =
         new ConcurrentHashMap<String, ConcurrentHashMap<MessageQueue, LockEntry>>(1024);
 
@@ -98,19 +102,17 @@ public class RebalanceLockManager {
     }
 
     private boolean isLocked(final String group, final MessageQueue mq, final String clientId) {
-        ConcurrentHashMap<MessageQueue, LockEntry> groupValue = this.mqLockTable.get(group);
-        if (groupValue != null) {
-            LockEntry lockEntry = groupValue.get(mq);
-            if (lockEntry != null) {
-                boolean locked = lockEntry.isLocked(clientId);
-                if (locked) {
-                    lockEntry.setLastUpdateTimestamp(System.currentTimeMillis());
-                }
-
-                return locked;
+        ConcurrentHashMap<MessageQueue, LockEntry> groupValue = this.mqLockTable.computeIfAbsent(group, k -> new ConcurrentHashMap<>());
+        LockEntry lockEntry = groupValue.get(mq);
+        if (lockEntry != null) {
+            // 是否是当前客户端获得到锁
+            boolean locked = lockEntry.isLocked(clientId);
+            if (locked) {
+                // 更新时间
+                lockEntry.setLastUpdateTimestamp(System.currentTimeMillis());
             }
+            return locked;
         }
-
         return false;
     }
 

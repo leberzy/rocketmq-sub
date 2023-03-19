@@ -83,11 +83,15 @@ public class RebalancePushImpl extends RebalanceImpl {
 
     @Override
     public boolean removeUnnecessaryMessageQueue(MessageQueue mq, ProcessQueue pq) {
+        // 持久化消费进度
         this.defaultMQPushConsumerImpl.getOffsetStore().persist(mq);
+        // 移除本地mq消费情况
         this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq);
+        //
         if (this.defaultMQPushConsumerImpl.isConsumeOrderly()
             && MessageModel.CLUSTERING.equals(this.defaultMQPushConsumerImpl.messageModel())) {
             try {
+                // 加锁
                 if (pq.getConsumeLock().tryLock(1000, TimeUnit.MILLISECONDS)) {
                     try {
                         return this.unlockDelay(mq, pq);
@@ -112,9 +116,11 @@ public class RebalancePushImpl extends RebalanceImpl {
 
     private boolean unlockDelay(final MessageQueue mq, final ProcessQueue pq) {
 
+        // treeMap中是否有消息
         if (pq.hasTempMessage()) {
             log.info("[{}]unlockDelay, begin {} ", mq.hashCode(), mq);
-            this.defaultMQPushConsumerImpl.getmQClientFactory().getScheduledExecutorService().schedule(new Runnable() {
+            // 延迟20s解锁，消费任务还在进行
+            this.defaultMQPushConsumerImpl.getMqClientInstance().getScheduledExecutorService().schedule(new Runnable() {
                 @Override
                 public void run() {
                     log.info("[{}]unlockDelay, execute at once {}", mq.hashCode(), mq);
@@ -122,6 +128,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                 }
             }, UNLOCK_DELAY_TIME_MILLS, TimeUnit.MILLISECONDS);
         } else {
+            // 释放锁
             this.unlock(mq, true);
         }
         return true;
