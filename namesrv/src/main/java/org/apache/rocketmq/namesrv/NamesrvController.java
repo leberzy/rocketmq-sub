@@ -96,7 +96,7 @@ public class NamesrvController {
         // 注册协议处理器
         this.registerProcessor();
 
-        // 定时任务1：以10s为周期检查broker的存活状态，将idle状态的broker移除
+        // 定时任务1：以10s为周期检查broker的存活状态，将not active状态的broker移除
         this.scheduledExecutorService.scheduleAtFixedRate(NamesrvController.this.routeInfoManager::scanNotActiveBroker, 5, 10, TimeUnit.SECONDS);
 
         // 定时任务2：以10分钟打印一遍kv配置
