@@ -28,7 +28,9 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 
 public class ClientHousekeepingService implements ChannelEventListener {
+    //
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+
     private final BrokerController brokerController;
 
     private ScheduledExecutorService scheduledExecutorService = Executors
@@ -53,8 +55,12 @@ public class ClientHousekeepingService implements ChannelEventListener {
     }
 
     private void scanExceptionChannel() {
+        // 检查客户端存活状态
+        // 生产端
         this.brokerController.getProducerManager().scanNotActiveChannel();
+        // 消费端
         this.brokerController.getConsumerManager().scanNotActiveChannel();
+        //
         this.brokerController.getFilterServerManager().scanNotActiveChannel();
     }
 

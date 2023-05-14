@@ -851,44 +851,55 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
+        // 消息存储模块
         if (this.messageStore != null) {
             this.messageStore.start();
         }
 
+        // netty通信模块
         if (this.remotingServer != null) {
             this.remotingServer.start();
         }
 
+        //
         if (this.fastRemotingServer != null) {
             this.fastRemotingServer.start();
         }
 
+        // 配置文件监听
         if (this.fileWatchService != null) {
             this.fileWatchService.start();
         }
 
+        // broker业务api模块
         if (this.brokerOuterAPI != null) {
             this.brokerOuterAPI.start();
         }
 
+        // 处理消息到来是唤醒pull线程
         if (this.pullRequestHoldService != null) {
             this.pullRequestHoldService.start();
         }
 
+        // 客户端心跳状态检查，删除过期的客户端
         if (this.clientHousekeepingService != null) {
             this.clientHousekeepingService.start();
         }
 
+        //
         if (this.filterServerManager != null) {
             this.filterServerManager.start();
         }
 
+        //
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
             startProcessorByHa(messageStoreConfig.getBrokerRole());
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
             this.registerBrokerAll(true, false, true);
         }
 
+        // 没隔30s注册broker到nameServer（心跳维持方法）
+        // brokerConfig.getRegisterNameServerPeriod() 默认30s
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
