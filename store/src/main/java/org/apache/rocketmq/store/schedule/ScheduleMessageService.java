@@ -55,17 +55,24 @@ import org.apache.rocketmq.store.config.StorePathConfigHelper;
 public class ScheduleMessageService extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
+    // 首次延迟
     private static final long FIRST_DELAY_TIME = 1000L;
+    // 延迟a while
     private static final long DELAY_FOR_A_WHILE = 100L;
+    // 延迟a period
     private static final long DELAY_FOR_A_PERIOD = 10000L;
+    // 延迟为了shutdown
     private static final long WAIT_FOR_SHUTDOWN = 5000L;
+    // 延迟个睡眠
     private static final long DELAY_FOR_A_SLEEP = 10L;
 
     private final ConcurrentMap<Integer /* level */, Long/* delay timeMillis */> delayLevelTable =
         new ConcurrentHashMap<Integer, Long>(32);
 
+    // 延迟队列中的消费进度：需要持久化
     private final ConcurrentMap<Integer /* level */, Long/* offset */> offsetTable =
         new ConcurrentHashMap<Integer, Long>(32);
+
     private final DefaultMessageStore defaultMessageStore;
     private final AtomicBoolean started = new AtomicBoolean(false);
     private ScheduledExecutorService deliverExecutorService;
@@ -409,6 +416,7 @@ public class ScheduleMessageService extends ConfigManager {
                 for (; i < bufferCQ.getSize() && isStarted(); i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
                     long offsetPy = bufferCQ.getByteBuffer().getLong();
                     int sizePy = bufferCQ.getByteBuffer().getInt();
+
                     long tagsCode = bufferCQ.getByteBuffer().getLong();
 
                     if (cq.isExtAddr(tagsCode)) {

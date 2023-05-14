@@ -30,13 +30,21 @@ public class Producer {
     /**
      * The number of produced messages.
      */
-    public static final int MESSAGE_COUNT = 1000;
+    public static final int MESSAGE_COUNT = 1000000;
     public static final String PRODUCER_GROUP = "please_rename_unique_group_name";
-    public static final String DEFAULT_NAMESRVADDR = "127.0.0.1:9876";
+    public static final String DEFAULT_NAMESRVADDR = ":9876";
     public static final String TOPIC = "TopicTest";
-    public static final String TAG = "TagA";
+    public static final String TOPIC1 = "TopicTest";
+    public static final String TAG = "*";
 
-    public static void main(String[] args) throws MQClientException, InterruptedException {
+    public static void main(String[] args) throws Exception{
+        for (int i = 0; i < 1000; i++) {
+
+            main0(args);
+        }
+    }
+
+    public static void main0(String[] args) throws MQClientException, InterruptedException {
 
         /*
          * Instantiate with a producer group name.
@@ -59,19 +67,25 @@ public class Producer {
         /*
          * Launch the instance.
          */
-        producer.setNamesrvAddr("127.0.0.1:9876");
         producer.start();
 
+        String topic  = TOPIC;
         for (int i = 0; i < MESSAGE_COUNT; i++) {
             try {
 
+                if ((i & 1) == 1) {
+                    topic = TOPIC;
+                }else {
+                    topic = TOPIC1;
+                }
                 /*
                  * Create a message instance, specifying topic, tag and message body.
                  */
-                Message msg = new Message(TOPIC /* Topic */,
+                Message msg = new Message(topic /* Topic */,
                     TAG /* Tag */,
                     ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
                 );
+                msg.setDelayTimeLevel(3);
 
                 /*
                  * Call send message to deliver message to one of brokers.
@@ -111,7 +125,12 @@ public class Producer {
                  *}
                  */
 
-                System.out.printf("%s%n", sendResult);
+                if (i % 1000 == 0) {
+                    System.out.printf("%s%n", sendResult);
+                }
+                if (i % 1000 == 0) {
+                    Thread.sleep(1);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 Thread.sleep(1000);
@@ -121,6 +140,7 @@ public class Producer {
         /*
          * Shut down once the producer instance is not longer in use.
          */
+        Thread.sleep(1000);
         producer.shutdown();
     }
 }

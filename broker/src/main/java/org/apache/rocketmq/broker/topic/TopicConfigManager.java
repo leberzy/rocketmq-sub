@@ -41,15 +41,21 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
 public class TopicConfigManager extends ConfigManager {
+
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+    // 加锁过期时长
     private static final long LOCK_TIMEOUT_MILLIS = 3000;
+    // 延迟消息队列数
     private static final int SCHEDULE_TOPIC_QUEUE_NUM = 18;
 
+    // 修改topicConfigTable时需要加锁
     private transient final Lock topicConfigTableLock = new ReentrantLock();
 
-    private final ConcurrentMap<String, TopicConfig> topicConfigTable =
-        new ConcurrentHashMap<String, TopicConfig>(1024);
+    // topic元数据
+    private final ConcurrentMap<String, TopicConfig> topicConfigTable = new ConcurrentHashMap<String, TopicConfig>(1024);
+    // 数据版本
     private final DataVersion dataVersion = new DataVersion();
+    // broker
     private transient BrokerController brokerController;
 
     public TopicConfigManager() {
@@ -153,6 +159,7 @@ public class TopicConfigManager extends ConfigManager {
         return this.topicConfigTable.get(topic);
     }
 
+    // 在消息发送的时候创建topic，如自动创建topic，defaultTopic就是模板topic
     public TopicConfig createTopicInSendMessageMethod(final String topic, final String defaultTopic,
         final String remoteAddress, final int clientDefaultTopicQueueNums, final int topicSysFlag) {
         TopicConfig topicConfig = null;
@@ -161,21 +168,29 @@ public class TopicConfigManager extends ConfigManager {
         try {
             if (this.topicConfigTableLock.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
+                    // 检查是否已经存在
                     topicConfig = this.topicConfigTable.get(topic);
                     if (topicConfig != null)
+                        // 存在就直接返回
                         return topicConfig;
 
+                    // 模板topic信息
                     TopicConfig defaultTopicConfig = this.topicConfigTable.get(defaultTopic);
                     if (defaultTopicConfig != null) {
+                        // 等于自动创建topic的模板
                         if (defaultTopic.equals(TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC)) {
+                            // 判断都是不可自动创建，设置权限范围为可读写
                             if (!this.brokerController.getBrokerConfig().isAutoCreateTopicEnable()) {
                                 defaultTopicConfig.setPerm(PermName.PERM_READ | PermName.PERM_WRITE);
                             }
                         }
 
+                        // isInherited可继承，即可复制
                         if (PermName.isInherited(defaultTopicConfig.getPerm())) {
+
                             topicConfig = new TopicConfig(topic);
 
+                            // 设置队列数
                             int queueNums = Math.min(clientDefaultTopicQueueNums, defaultTopicConfig.getWriteQueueNums());
 
                             if (queueNums < 0) {
@@ -190,24 +205,23 @@ public class TopicConfigManager extends ConfigManager {
                             topicConfig.setTopicSysFlag(topicSysFlag);
                             topicConfig.setTopicFilterType(defaultTopicConfig.getTopicFilterType());
                         } else {
-                            log.warn("Create new topic failed, because the default topic[{}] has no perm [{}] producer:[{}]",
-                                defaultTopic, defaultTopicConfig.getPerm(), remoteAddress);
+                            log.warn("Create new topic failed, because the default topic[{}] has no perm [{}] producer:[{}]", defaultTopic, defaultTopicConfig.getPerm(), remoteAddress);
                         }
                     } else {
-                        log.warn("Create new topic failed, because the default topic[{}] not exist. producer:[{}]",
-                            defaultTopic, remoteAddress);
+                        log.warn("Create new topic failed, because the default topic[{}] not exist. producer:[{}]", defaultTopic, remoteAddress);
                     }
 
                     if (topicConfig != null) {
-                        log.info("Create new topic by default topic:[{}] config:[{}] producer:[{}]",
-                            defaultTopic, topicConfig, remoteAddress);
-
-                        this.topicConfigTable.put(topic, topicConfig);
-
-                        this.dataVersion.nextVersion();
+                        log.info("Create new topic by default topic:[{}] config:[{}] producer:[{}]", defaultTopic, topicConfig, remoteAddress);
 
                         createNew = true;
 
+                        this.topicConfigTable.put(topic, topicConfig);
+
+                        // 数据版本升级
+                        this.dataVersion.nextVersion();
+
+                        // 持久化，这里说明消息第一次发送时还是比较耗时的，因为做的事情比较多
                         this.persist();
                     }
                 } finally {
@@ -219,17 +233,14 @@ public class TopicConfigManager extends ConfigManager {
         }
 
         if (createNew) {
+            // 单向发送消息给name server同步当前broker上topic元数据信息
             this.brokerController.registerBrokerAll(false, true, true);
         }
 
         return topicConfig;
     }
 
-    public TopicConfig createTopicInSendMessageBackMethod(
-        final String topic,
-        final int clientDefaultTopicQueueNums,
-        final int perm,
-        final int topicSysFlag) {
+    public TopicConfig createTopicInSendMessageBackMethod( final String topic, int clientDefaultTopicQueueNums, int perm, int topicSysFlag) {
         TopicConfig topicConfig = this.topicConfigTable.get(topic);
         if (topicConfig != null)
             return topicConfig;
@@ -250,9 +261,12 @@ public class TopicConfigManager extends ConfigManager {
                     topicConfig.setTopicSysFlag(topicSysFlag);
 
                     log.info("create new topic {}", topicConfig);
+                    // 放入hash表
                     this.topicConfigTable.put(topic, topicConfig);
                     createNew = true;
+                    // 升级版本
                     this.dataVersion.nextVersion();
+                    // 持久化
                     this.persist();
                 } finally {
                     this.topicConfigTableLock.unlock();
@@ -263,6 +277,7 @@ public class TopicConfigManager extends ConfigManager {
         }
 
         if (createNew) {
+            // 单向同步给nameSrv
             this.brokerController.registerBrokerAll(false, true, true);
         }
 
