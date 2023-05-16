@@ -240,6 +240,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 this.topicPublishInfoTable.put(this.defaultMQProducer.getCreateTopicKey(), new TopicPublishInfo());
 
                 if (startFactory) {
+                    // 启动客服端单例
                     mQClientFactory.start();
                 }
 
@@ -580,7 +581,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     private SendResult sendDefaultImpl(
         Message msg,
-        final CommunicationMode communicationMode,
+        final CommunicationMode communicationMode,// 发送模式：同步，异步，单向
         final SendCallback sendCallback,
         final long timeout // 超时3s
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
@@ -606,7 +607,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             MessageQueue mq = null;
             Exception exception = null;
             SendResult sendResult = null;
-            // 同步发送的话总共发送3次
+            // 同步发送的话总共发送3(1+重试次数2)次
             // 异步的发送只会发送一次
             int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;
             // 当前第几次发送
@@ -890,6 +891,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 requestHeader.setUnitMode(this.isUnitMode());
                 requestHeader.setBatch(msg instanceof MessageBatch);
                 // 消息重试的逻辑，消费端.....
+                // 消费端消费失败，回退消息，待下次重试的消息
                 if (requestHeader.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                     String reconsumeTimes = MessageAccessor.getReconsumeTime(msg);
                     if (reconsumeTimes != null) {

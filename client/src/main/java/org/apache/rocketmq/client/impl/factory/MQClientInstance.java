@@ -261,17 +261,26 @@ public class MQClientInstance {
         synchronized (this) {
             switch (this.serviceState) {
                 case CREATE_JUST:
+                    // 启动客服端单例
                     this.serviceState = ServiceState.START_FAILED;
                     // If not specified,looking address from name server
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
+
+                    // 启动netty客户端
                     // Start request-response channel
                     this.mQClientAPIImpl.start();
+
+                    // 启动多个定时任务
                     // Start various schedule tasks
                     this.startScheduledTask();
+
+                    // 拉取消息服务启动
                     // Start pull service
                     this.pullMessageService.start();
+
+                    // 负载均衡启动
                     // Start rebalance service
                     this.rebalanceService.start();
 
@@ -305,6 +314,8 @@ public class MQClientInstance {
             }, 1000 * 10, 1000 * 60 * 2, TimeUnit.MILLISECONDS);
         }
 
+
+        // 定时任务1：从name server中拉取主题路由信息，默认30s拉取一次
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -336,7 +347,7 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
-        // 定时任务3：持久化消费者消费记录
+        // 定时任务3：持久化消费者消费记录，每5s执行一次
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -350,7 +361,7 @@ public class MQClientInstance {
             }
         }, 1000 * 10, this.clientConfig.getPersistConsumerOffsetInterval(), TimeUnit.MILLISECONDS);
 
-        // 定时任务4：动态调整消费者的线程池
+        // 定时任务4：动态调整消费者的线程池，当前版本实现上已经废弃了
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -764,10 +775,15 @@ public class MQClientInstance {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 ConsumerData consumerData = new ConsumerData();
+                // 消费组
                 consumerData.setGroupName(impl.groupName());
+                // 消费模式：push/pull
                 consumerData.setConsumeType(impl.consumeType());
+                // 消费消息模式：BROADCASTING、CLUSTERING
                 consumerData.setMessageModel(impl.messageModel());
+                // 从哪里开始消费
                 consumerData.setConsumeFromWhere(impl.consumeFromWhere());
+                // 订阅信息
                 consumerData.getSubscriptionDataSet().addAll(impl.subscriptions());
                 consumerData.setUnitMode(impl.isUnitMode());
 

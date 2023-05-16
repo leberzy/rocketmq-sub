@@ -688,6 +688,7 @@ public class CommitLog {
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
             // Delay Delivery
             if (msg.getDelayTimeLevel() > 0) {
+                // 延迟消息
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
@@ -717,6 +718,7 @@ public class CommitLog {
 
         PutMessageThreadLocal putMessageThreadLocal = this.putMessageThreadLocal.get();
         updateMaxMessageSize(putMessageThreadLocal);
+
         if (!multiDispatch.isMultiDispatchMsg(msg)) {
             PutMessageResult encodeResult = putMessageThreadLocal.getEncoder().encode(msg);
             if (encodeResult != null) {
@@ -724,6 +726,7 @@ public class CommitLog {
             }
             msg.setEncodedBuff(putMessageThreadLocal.getEncoder().getEncoderBuffer());
         }
+
         PutMessageContext putMessageContext = new PutMessageContext(generateKey(putMessageThreadLocal.getKeyBuilder(), msg));
 
         // 持锁时间
@@ -935,6 +938,7 @@ public class CommitLog {
     public CompletableFuture<PutMessageStatus> submitFlushRequest(AppendMessageResult result, MessageExt messageExt) {
         // Synchronization flush
         if (FlushDiskType.SYNC_FLUSH == this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+            // 如果是配置的同步刷盘，则需要进行一次刷盘操作
             final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
             if (messageExt.isWaitStoreMsgOK()) {
                 GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
@@ -960,6 +964,7 @@ public class CommitLog {
 
     public CompletableFuture<PutMessageStatus> submitReplicaRequest(AppendMessageResult result, MessageExt messageExt) {
         if (BrokerRole.SYNC_MASTER == this.defaultMessageStore.getMessageStoreConfig().getBrokerRole()) {
+            // 副本同步机制，如果是同步同步那么就需要等待从节点返回成功。。。。
             HAService service = this.defaultMessageStore.getHaService();
             if (messageExt.isWaitStoreMsgOK()) {
                 if (service.isSlaveOK(result.getWroteBytes() + result.getWroteOffset())) {
@@ -967,9 +972,11 @@ public class CommitLog {
                             this.defaultMessageStore.getMessageStoreConfig().getSlaveTimeout());
                     service.putRequest(request);
                     service.getWaitNotifyObject().wakeupAll();
+                    //
                     return request.future();
                 }
                 else {
+                    // 从节点不可用
                     return CompletableFuture.completedFuture(PutMessageStatus.SLAVE_NOT_AVAILABLE);
                 }
             }

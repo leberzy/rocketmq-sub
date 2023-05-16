@@ -240,6 +240,7 @@ public class DefaultMessageStore implements MessageStore {
      */
     public void start() throws Exception {
 
+        // 一个文件目录只能有一个进程占用
         lock = lockFile.getChannel().tryLock(0, 1, false);
         if (lock == null || lock.isShared() || !lock.isValid()) {
             throw new RuntimeException("Lock failed,MQ already started");
@@ -468,8 +469,10 @@ public class DefaultMessageStore implements MessageStore {
 
 
         long beginTime = this.getSystemClock().now();
+        // 提交消息
         CompletableFuture<PutMessageResult> putResultFuture = this.commitLog.asyncPutMessage(msg);
 
+        //
         putResultFuture.thenAccept(result -> {
             long elapsedTime = this.getSystemClock().now() - beginTime;
             if (elapsedTime > 500) {
@@ -1551,6 +1554,7 @@ public class DefaultMessageStore implements MessageStore {
 
     public void putMessagePositionInfo(DispatchRequest dispatchRequest) {
         ConsumeQueue cq = this.findConsumeQueue(dispatchRequest.getTopic(), dispatchRequest.getQueueId());
+        // 构建cq队列
         cq.putMessagePositionInfoWrapper(dispatchRequest, checkMultiDispatchQueue(dispatchRequest));
     }
 
@@ -2034,13 +2038,18 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         private void doReput() {
+            //
             if (this.reputFromOffset < DefaultMessageStore.this.commitLog.getMinOffset()) {
                 log.warn("The reputFromOffset={} is smaller than minPyOffset={}, this usually indicate that the dispatch behind too much and the commitlog has expired.",
                     this.reputFromOffset, DefaultMessageStore.this.commitLog.getMinOffset());
+
                 this.reputFromOffset = DefaultMessageStore.this.commitLog.getMinOffset();
             }
+
+            // 循环处理
             for (boolean doNext = true; this.isCommitLogAvailable() && doNext; ) {
 
+                //
                 if (DefaultMessageStore.this.getMessageStoreConfig().isDuplicationEnable()
                     && this.reputFromOffset >= DefaultMessageStore.this.getConfirmOffset()) {
                     break;
@@ -2052,21 +2061,29 @@ public class DefaultMessageStore implements MessageStore {
                         this.reputFromOffset = result.getStartOffset();
 
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
+                            // 解析消息
                             DispatchRequest dispatchRequest =
                                 DefaultMessageStore.this.commitLog.checkMessageAndReturnSize(result.getByteBuffer(), false, false);
+                            // 消息大小
                             int size = dispatchRequest.getBufferSize() == -1 ? dispatchRequest.getMsgSize() : dispatchRequest.getBufferSize();
 
+                            // 解析是正常的
                             if (dispatchRequest.isSuccess()) {
+                                //
                                 if (size > 0) {
+                                    // 分发消息
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    //
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                             && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()
                                             && DefaultMessageStore.this.messageArrivingListener != null) {
+                                        // 通知长轮询的pull线程，消息到了
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
                                             dispatchRequest.getQueueId(), dispatchRequest.getConsumeQueueOffset() + 1,
                                             dispatchRequest.getTagsCode(), dispatchRequest.getStoreTimestamp(),
                                             dispatchRequest.getBitMap(), dispatchRequest.getPropertiesMap());
+                                        //
                                         notifyMessageArrive4MultiQueue(dispatchRequest);
                                     }
 
@@ -2144,6 +2161,7 @@ public class DefaultMessageStore implements MessageStore {
 
             while (!this.isStopped()) {
                 try {
+                    // 每毫秒执行一次
                     Thread.sleep(1);
                     this.doReput();
                 } catch (Exception e) {
